@@ -46,7 +46,7 @@ required-features = ["gui"]
 criterion = { version = "0.5", features = ["html_reports"] }
 
 [profile.release]
-lto = true
+lto = false
 
 [profile.bench]
 lto = true
