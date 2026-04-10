@@ -1,3 +1,4 @@
+use crate::charts::{ChartData, Series};
 use crate::config::FastQCConfig;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -50,7 +51,11 @@ impl NContent {
                 total += self.not_n_counts[bp];
             }
 
-            self.percentages[i] = 100.0 * (n_count as f64 / total as f64);
+            self.percentages[i] = if total > 0 {
+                100.0 * (n_count as f64 / total as f64)
+            } else {
+                0.0
+            };
         }
 
         self.calculated = true;
@@ -125,5 +130,26 @@ impl QCModule for NContent {
             buf.push_str(&format_java_double(self.percentages[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.get_percentages();
+        }
+        if self.percentages.is_empty() {
+            return None;
+        }
+
+        Some(ChartData::LineGraph {
+            series: vec![Series {
+                name: "%N".to_string(),
+                data: self.percentages.clone(),
+            }],
+            x_labels: self.x_categories.clone(),
+            x_axis_label: "Position in read (bp)".to_string(),
+            title: "N content across all bases".to_string(),
+            min_y: 0.0,
+            max_y: 100.0,
+        })
     }
 }

@@ -19,6 +19,28 @@ statrs = "0.18"
 thiserror = "2"
 base64 = "0.22"
 noodles = { version = "0.88", features = ["bam", "sam", "bgzf", "core"] }
+plotters = "0.3"
+plotters-bitmap = "0.3"
+image = "0.25"
+iced = { version = "0.13", optional = true, features = ["image"] }
+
+[features]
+default = []
+gui = ["iced"]
+
+[package.metadata.bundle]
+name = "FastQC"
+identifier = "uk.ac.babraham.fastqc-rs"
+icon = ["package/fastqc-rs.ico"]
+short_description = "Quality control for high-throughput sequencing data"
+
+[build-dependencies]
+winresource = "0.1"
+
+[[bin]]
+name = "fastqc-rs-gui"
+path = "src/gui_main.rs"
+required-features = ["gui"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

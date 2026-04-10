@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::charts::ChartData;
 use crate::config::FastQCConfig;
 use crate::encoding::phred::PhredEncoding;
 use crate::modules::module_config::ModuleConfig;
@@ -294,5 +295,21 @@ impl QCModule for PerTileQuality {
                 buf.push('\n');
             }
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.get_percentages();
+        }
+        if self.tiles.is_empty() {
+            return None;
+        }
+
+        Some(ChartData::TileHeatmap {
+            tile_ids: self.tiles.clone(),
+            x_labels: self.x_labels.clone(),
+            deviations: self.means.clone(),
+            max_deviation: self.max_deviation,
+        })
     }
 }

@@ -1,8 +1,11 @@
 #![allow(clippy::needless_range_loop)]
 
 pub mod analysis;
+pub mod charts;
 pub mod config;
 pub mod contaminant;
+#[cfg(feature = "gui")]
+pub mod gui;
 pub mod encoding;
 pub mod modules;
 pub mod report;
@@ -34,7 +37,7 @@ use sequence::fastq_file::FastQFile;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Create the standard module list, matching Java ModuleFactory.getStandardModuleList().
-fn create_modules(config: &FastQCConfig) -> Vec<Box<dyn QCModule>> {
+pub fn create_modules(config: &FastQCConfig) -> Vec<Box<dyn QCModule>> {
     let limits = config.limits_file.as_deref();
     let mc = || ModuleConfig::new(limits);
 
@@ -62,7 +65,7 @@ fn create_modules(config: &FastQCConfig) -> Vec<Box<dyn QCModule>> {
 /// Run FastQC analysis on a single file and return the data report text.
 /// Detect input format from config or file extension.
 /// Matches Java SequenceFactory logic.
-fn detect_format(path: &Path, config: &FastQCConfig) -> String {
+pub fn detect_format(path: &Path, config: &FastQCConfig) -> String {
     if let Some(ref fmt) = config.sequence_format {
         return match fmt.as_str() {
             "bam" | "sam" | "bam_mapped" | "sam_mapped" => fmt.clone(),
@@ -82,12 +85,27 @@ fn detect_format(path: &Path, config: &FastQCConfig) -> String {
     }
 }
 
-/// Result of running FastQC on a single file, containing both report types.
+/// Per-module QC result with structured data for programmatic access.
+#[derive(Debug, Clone)]
+pub struct ModuleResult {
+    /// Module display name (e.g. "Basic Statistics")
+    pub name: String,
+    /// Pass / Warn / Fail
+    pub status: modules::QCStatus,
+    /// Tab-separated text data for this module (same as in fastqc_data.txt)
+    pub data_text: String,
+    /// Chart data for rendering, if this module produces a chart
+    pub chart_data: Option<charts::ChartData>,
+}
+
+/// Result of running FastQC on a single file or sequence set.
 pub struct FastQCReport {
     /// The text data report (fastqc_data.txt content)
     pub data_report: String,
-    /// The HTML report (fastqc_report.html content)
+    /// The HTML report with embedded charts (fastqc_report.html content)
     pub html_report: String,
+    /// Per-module structured results for programmatic access
+    pub modules: Vec<ModuleResult>,
 }
 
 /// Run FastQC analysis on a single file and return both reports.
@@ -136,9 +154,27 @@ pub fn run_fastqc_on_file(
 
     let data_report = report::generate_data_report(&mut modules, VERSION);
     let html_report = report::generate_html_report(&mut modules, &file_name, VERSION);
+
+    // Extract structured per-module results
+    let module_results: Vec<ModuleResult> = modules
+        .iter_mut()
+        .filter(|m| !m.ignore_in_report())
+        .map(|m| {
+            let mut data_text = String::new();
+            m.make_data_report(&mut data_text);
+            ModuleResult {
+                name: m.name().to_string(),
+                status: m.status(),
+                data_text,
+                chart_data: m.chart_data(),
+            }
+        })
+        .collect();
+
     Ok(FastQCReport {
         data_report,
         html_report,
+        modules: module_results,
     })
 }
 
@@ -327,7 +363,7 @@ impl FastQCRunner {
         Self { config }
     }
 
-    /// Run QC on an iterator of sequences and return both reports.
+    /// Run QC on an iterator of sequences and return structured results.
     pub fn run_sequences(
         &self,
         sequences: impl Iterator<Item = sequence::Sequence>,
@@ -338,9 +374,26 @@ impl FastQCRunner {
         analysis::run_analysis(sequences, &mut modules, self.config.quiet, self.config.min_length)?;
         let data_report = report::generate_data_report(&mut modules, VERSION);
         let html_report = report::generate_html_report(&mut modules, "sequences", VERSION);
+
+        let module_results: Vec<ModuleResult> = modules
+            .iter_mut()
+            .filter(|m| !m.ignore_in_report())
+            .map(|m| {
+                let mut data_text = String::new();
+                m.make_data_report(&mut data_text);
+                ModuleResult {
+                    name: m.name().to_string(),
+                    status: m.status(),
+                    data_text,
+                    chart_data: m.chart_data(),
+                }
+            })
+            .collect();
+
         Ok(FastQCReport {
             data_report,
             html_report,
+            modules: module_results,
         })
     }
 

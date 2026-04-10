@@ -1,3 +1,4 @@
+use crate::charts::{ChartData, Series};
 use crate::config::FastQCConfig;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -199,5 +200,28 @@ impl QCModule for SequenceLengthDistribution {
             buf.push_str(&format_java_double(self.graph_counts[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.calculate_distribution();
+        }
+        if self.graph_counts.is_empty() {
+            return None;
+        }
+
+        let max_y = self.graph_counts.iter().cloned().fold(0.0_f64, f64::max);
+
+        Some(ChartData::LineGraph {
+            series: vec![Series {
+                name: "Sequence Length".to_string(),
+                data: self.graph_counts.clone(),
+            }],
+            x_labels: self.x_categories.clone(),
+            x_axis_label: "Sequence Length (bp)".to_string(),
+            title: "Distribution of sequence lengths over all sequences".to_string(),
+            min_y: 0.0,
+            max_y,
+        })
     }
 }

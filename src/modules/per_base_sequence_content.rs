@@ -1,3 +1,4 @@
+use crate::charts::{ChartData, Series};
 use crate::config::FastQCConfig;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -188,5 +189,30 @@ impl QCModule for PerBaseSequenceContent {
             buf.push_str(&format_java_double(pct[1][i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.get_percentages();
+        }
+        let pct = self.percentages.as_ref()?;
+        if pct[0].is_empty() {
+            return None;
+        }
+
+        // Order: %T, %C, %A, %G (indices 0, 1, 2, 3 in the percentages array)
+        Some(ChartData::LineGraph {
+            series: vec![
+                Series { name: "%T".to_string(), data: pct[0].clone() },
+                Series { name: "%C".to_string(), data: pct[1].clone() },
+                Series { name: "%A".to_string(), data: pct[2].clone() },
+                Series { name: "%G".to_string(), data: pct[3].clone() },
+            ],
+            x_labels: self.x_categories.clone(),
+            x_axis_label: "Position in read (bp)".to_string(),
+            title: "Sequence content across all bases".to_string(),
+            min_y: 0.0,
+            max_y: 100.0,
+        })
     }
 }

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
+use crate::charts::{ChartData, Series};
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::overrepresented_seqs::SharedDuplicationData;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -229,5 +230,28 @@ impl QCModule for DuplicationLevel {
             buf.push_str(&format_java_double(total_percentages[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        self.calculate_levels();
+        let total_percentages = self.total_percentages.as_ref()?;
+
+        // Build labels with "+" suffix on the last one
+        let mut x_labels = self.labels.clone();
+        if let Some(last) = x_labels.last_mut() {
+            last.push('+');
+        }
+
+        Some(ChartData::LineGraph {
+            series: vec![Series {
+                name: "% Total sequences".to_string(),
+                data: total_percentages.clone(),
+            }],
+            x_labels,
+            x_axis_label: "Sequence Duplication Level".to_string(),
+            title: "Percent of seqs remaining if deduplicated".to_string(),
+            min_y: 0.0,
+            max_y: 100.0,
+        })
     }
 }

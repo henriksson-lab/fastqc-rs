@@ -228,6 +228,23 @@ pub fn generate_html_report(
         buf.push_str(&name);
         buf.push_str("</h2>\n");
 
+        // Render chart image if available
+        if let Some(chart_data) = module.chart_data() {
+            match crate::charts::render_chart_to_png(&chart_data) {
+                Ok(png_bytes) => {
+                    let b64 = to_base64(&png_bytes);
+                    buf.push_str("    <p><img class=\"indented\" src=\"data:image/png;base64,");
+                    buf.push_str(&b64);
+                    buf.push_str("\" alt=\"");
+                    buf.push_str(&name);
+                    buf.push_str("\"></p>\n");
+                }
+                Err(e) => {
+                    eprintln!("Warning: failed to render chart for {}: {}", name, e);
+                }
+            }
+        }
+
         // Generate text data and convert to HTML table
         let mut data_text = String::new();
         module.make_data_report(&mut data_text);

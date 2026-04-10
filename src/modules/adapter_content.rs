@@ -1,3 +1,4 @@
+use crate::charts::{ChartData, Series};
 use crate::config::FastQCConfig;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -8,16 +9,13 @@ use crate::utils::base_group::BaseGroup;
 const DEFAULT_ADAPTERS: &str = include_str!("../resources/adapter_list.txt");
 
 struct Adapter {
-    #[allow(dead_code)]
-    name: String,
     sequence: String,
     positions: Vec<u64>,
 }
 
 impl Adapter {
-    fn new(name: &str, sequence: &str) -> Self {
+    fn new(sequence: &str) -> Self {
         Self {
-            name: name.to_string(),
             sequence: sequence.to_string(),
             positions: vec![0; 1],
         }
@@ -95,7 +93,7 @@ impl AdapterContent {
                 longest_adapter = seq.len();
             }
             labels.push(name.to_string());
-            adapters.push(Adapter::new(name, seq));
+            adapters.push(Adapter::new(seq));
         }
 
         Self {
@@ -268,5 +266,30 @@ impl QCModule for AdapterContent {
                 buf.push('\n');
             }
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.calculate_enrichment();
+        }
+        if self.enrichments.is_empty() || self.x_labels.is_empty() {
+            return None;
+        }
+
+        let series: Vec<Series> = self.labels.iter().zip(self.enrichments.iter())
+            .map(|(name, data)| Series {
+                name: name.clone(),
+                data: data.clone(),
+            })
+            .collect();
+
+        Some(ChartData::LineGraph {
+            series,
+            x_labels: self.x_labels.clone(),
+            x_axis_label: "Position in read (bp)".to_string(),
+            title: "% Adapter".to_string(),
+            min_y: 0.0,
+            max_y: 100.0,
+        })
     }
 }

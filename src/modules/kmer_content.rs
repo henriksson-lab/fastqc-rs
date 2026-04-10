@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::charts::{ChartData, Series};
 use crate::config::FastQCConfig;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::QCModule;
@@ -49,6 +50,7 @@ pub struct KmerContent {
     max_kmer_size: usize,
     calculated: bool,
     enriched_kmers: Option<Vec<EnrichedKmer>>,
+    x_labels: Vec<String>,
     config: ModuleConfig,
     fqc_config: FastQCConfig,
 }
@@ -60,6 +62,7 @@ struct EnrichedKmer {
     p_value: f32,
     max_obs_exp: f32,
     max_position_label: String,
+    obs_exp_positions: Vec<f32>,
 }
 
 impl KmerContent {
@@ -74,6 +77,7 @@ impl KmerContent {
             max_kmer_size: kmer_size,
             calculated: false,
             enriched_kmers: None,
+            x_labels: Vec::new(),
             config,
             fqc_config,
         }
@@ -107,11 +111,13 @@ impl KmerContent {
 
         if group_length == 0 {
             self.enriched_kmers = Some(Vec::new());
+            self.x_labels = Vec::new();
             self.calculated = true;
             return;
         }
 
         let groups = BaseGroup::make_base_groups(group_length, &self.fqc_config);
+        self.x_labels = groups.iter().map(|g| g.to_string()).collect();
 
         let mut uneven_kmers: Vec<(String, u64, f32, Vec<f32>)> = Vec::new();
 
@@ -225,6 +231,7 @@ impl KmerContent {
                 p_value: *p_value,
                 max_obs_exp,
                 max_position_label,
+                obs_exp_positions: obs_exp.clone(),
             });
         }
 
@@ -299,6 +306,7 @@ impl QCModule for KmerContent {
         self.longest_sequence = 0;
         self.skip_count = 0;
         self.enriched_kmers = None;
+        self.x_labels.clear();
         self.kmers.clear();
     }
 
@@ -355,6 +363,51 @@ impl QCModule for KmerContent {
                 buf.push('\n');
             }
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.calculate_enrichment();
+        }
+
+        let enriched = self.enriched_kmers.as_ref()?;
+        if enriched.is_empty() || self.x_labels.is_empty() {
+            return None;
+        }
+
+        // Take up to 6 top enriched kmers for the chart
+        let top_n = enriched.len().min(6);
+        let series: Vec<Series> = enriched[..top_n]
+            .iter()
+            .map(|ek| {
+                // Convert obs/exp to log2 scale
+                let data: Vec<f64> = ek.obs_exp_positions.iter()
+                    .map(|&v| if v > 0.0 { (v as f64).log2() } else { 0.0 })
+                    .collect();
+                Series {
+                    name: ek.sequence.clone(),
+                    data,
+                }
+            })
+            .collect();
+
+        let max_y = series.iter()
+            .flat_map(|s| s.data.iter())
+            .cloned()
+            .fold(0.0_f64, f64::max);
+        let min_y = series.iter()
+            .flat_map(|s| s.data.iter())
+            .cloned()
+            .fold(0.0_f64, f64::min);
+
+        Some(ChartData::LineGraph {
+            series,
+            x_labels: self.x_labels.clone(),
+            x_axis_label: "Position in read (bp)".to_string(),
+            title: "Log2 Obs/Exp".to_string(),
+            min_y,
+            max_y,
+        })
     }
 }
 

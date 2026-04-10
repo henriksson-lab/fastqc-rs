@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::charts::{ChartData, Series};
 use crate::encoding::phred::PhredEncoding;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::QCModule;
@@ -145,6 +146,30 @@ impl QCModule for PerSequenceQualityScores {
             buf.push_str(&format_java_double(self.quality_distribution[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.calculate_distribution();
+        }
+        if self.quality_distribution.is_empty() {
+            return None;
+        }
+
+        let x_labels: Vec<String> = self.x_categories.iter().map(|q| q.to_string()).collect();
+        let max_y = self.max_count;
+
+        Some(ChartData::LineGraph {
+            series: vec![Series {
+                name: "Average Quality per read".to_string(),
+                data: self.quality_distribution.clone(),
+            }],
+            x_labels,
+            x_axis_label: "Mean Sequence Quality (Phred Score)".to_string(),
+            title: "Quality score distribution over all sequences".to_string(),
+            min_y: 0.0,
+            max_y,
+        })
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::charts::{ChartData, Series};
 use crate::modules::gc_model::GCModel;
 use crate::modules::module_config::ModuleConfig;
 use crate::modules::per_sequence_quality::format_java_double;
@@ -214,5 +215,35 @@ impl QCModule for PerSequenceGCContent {
             buf.push_str(&format_java_double(self.gc_distribution[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.calculate_distribution();
+        }
+
+        let x_labels: Vec<String> = (0..=100).map(|i| i.to_string()).collect();
+        let max_y = self.gc_distribution.iter()
+            .chain(self.theoretical_distribution.iter())
+            .cloned()
+            .fold(0.0_f64, f64::max);
+
+        Some(ChartData::LineGraph {
+            series: vec![
+                Series {
+                    name: "GC count per read".to_string(),
+                    data: self.gc_distribution.to_vec(),
+                },
+                Series {
+                    name: "Theoretical Distribution".to_string(),
+                    data: self.theoretical_distribution.to_vec(),
+                },
+            ],
+            x_labels,
+            x_axis_label: "Mean GC content (%)".to_string(),
+            title: "GC distribution over all sequences".to_string(),
+            min_y: 0.0,
+            max_y,
+        })
     }
 }

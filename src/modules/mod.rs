@@ -13,6 +13,7 @@ pub mod per_sequence_quality;
 pub mod per_tile_quality;
 pub mod sequence_length_distribution;
 
+use crate::charts::ChartData;
 use crate::sequence::Sequence;
 
 /// Status of a QC module's result.
@@ -61,6 +62,11 @@ pub trait QCModule {
 
     /// Generate the text data report section for this module
     fn make_data_report(&mut self, buf: &mut String);
+
+    /// Return chart data for rendering. Returns None for table-only modules.
+    fn chart_data(&mut self) -> Option<ChartData> {
+        None
+    }
 
     /// Get the current status
     fn status(&mut self) -> QCStatus {

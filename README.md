@@ -6,22 +6,45 @@ A Rust port of [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastq
 
 ## Installation
 
-```sh
-cargo install fastqc-rs
-```
+### Pre-built binaries
 
-Or build from source:
+Download from the [Releases](../../releases) page:
+- **Windows**: `fastqc-rs-windows.zip` — portable, no installer needed. Extract and run `fastqc-rs.exe` (CLI) or `fastqc-rs-gui.exe` (GUI).
+- **macOS**: `fastqc-rs-macos.zip` — extract `FastQC.app` and drag to Applications.
+- **Linux**: `fastqc-rs-linux.tar.gz` — extract and run.
+
+### From source
 
 ```sh
 git clone <repo-url>
 cd fastqc-rs
-cargo build --release
+cargo build --release                               # CLI only
+cargo build --release --features gui                 # CLI + GUI
 ```
 
 For best performance, compile with native CPU optimizations:
 
 ```sh
 RUSTFLAGS="-C target-cpu=native" cargo build --release
+```
+
+### GUI
+
+The GUI is an optional feature. Build with:
+
+```sh
+cargo build --release --features gui
+# Run: target/release/fastqc-rs-gui input.fastq
+```
+
+### Packaging for distribution
+
+```sh
+# Windows portable exe (cross-compile from Linux)
+bash package/build-windows.sh
+
+# macOS .app bundle
+bash package/build-macos.sh
 ```
 
 ## CLI Usage
@@ -83,23 +106,40 @@ For each input file (e.g., `sample.fastq`), three output files are generated:
 
 ## Library Usage
 
-`fastqc-rs` can be used as a library for programmatic QC analysis:
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+fastqc-rs = "0.1"
+```
+
+### Run QC on a file
 
 ```rust
 use fastqc_rs::config::FastQCConfig;
-use fastqc_rs::{FastQCRunner, FastQCReport};
+use fastqc_rs::{FastQCRunner, FastQCReport, ModuleResult};
+use fastqc_rs::modules::QCStatus;
 use std::path::Path;
 
-// Run QC on a file
 let config = FastQCConfig::default();
 let runner = FastQCRunner::new(config);
 let report: FastQCReport = runner.run_file(Path::new("input.fastq")).unwrap();
 
-println!("{}", report.data_report);  // fastqc_data.txt content
-println!("{}", report.html_report);  // HTML report content
+// Access raw reports
+println!("{}", report.data_report);   // fastqc_data.txt content
+println!("{}", report.html_report);   // HTML with embedded charts
+
+// Access structured per-module results
+for module in &report.modules {
+    println!("{}: {}", module.name, module.status);
+    // module.data_text  — tab-separated data for this module
+    // module.chart_data — ChartData enum for rendering charts
+}
 ```
 
-### In-memory sequences
+### Run QC on in-memory sequences
+
+No file I/O required — pass sequences directly:
 
 ```rust
 use fastqc_rs::config::FastQCConfig;
@@ -108,18 +148,59 @@ use fastqc_rs::FastQCRunner;
 
 let sequences = vec![
     Sequence::new(
-        "test.fastq".to_string(),
-        "ACGTACGTACGT".to_string(),
-        "IIIIIIIIIIII".to_string(),
-        "@read1".to_string(),
+        "sample.fastq".into(),
+        "ACGTACGTACGT".into(),
+        "IIIIIIIIIIII".into(),
+        "@read1".into(),
+    ),
+    Sequence::new(
+        "sample.fastq".into(),
+        "GCTAGCTAGCTA".into(),
+        "HHHHHHHHHHHH".into(),
+        "@read2".into(),
     ),
 ];
 
 let config = FastQCConfig { quiet: true, ..Default::default() };
 let runner = FastQCRunner::new(config);
 let report = runner.run_sequences(sequences.into_iter()).unwrap();
-println!("{}", report.data_report);
+
+// Check pass/warn/fail per module
+for m in &report.modules {
+    match m.status {
+        fastqc_rs::modules::QCStatus::Pass => println!("  PASS  {}", m.name),
+        fastqc_rs::modules::QCStatus::Warn => println!("  WARN  {}", m.name),
+        fastqc_rs::modules::QCStatus::Fail => println!("  FAIL  {}", m.name),
+    }
+}
 ```
+
+### Render charts programmatically
+
+```rust
+use fastqc_rs::charts;
+
+let report = runner.run_file(Path::new("input.fastq")).unwrap();
+
+for module in &report.modules {
+    if let Some(ref chart_data) = module.chart_data {
+        let png_bytes = charts::render_chart_to_png(chart_data).unwrap();
+        std::fs::write(format!("{}.png", module.name), &png_bytes).unwrap();
+    }
+}
+```
+
+### Key types
+
+| Type | Description |
+|------|-------------|
+| `FastQCRunner` | Main entry point — holds config, runs analysis |
+| `FastQCReport` | Analysis result: `data_report`, `html_report`, `modules` |
+| `ModuleResult` | Per-module result: `name`, `status`, `data_text`, `chart_data` |
+| `FastQCConfig` | Configuration (mirrors all CLI options) |
+| `Sequence` | A single read: `id`, `sequence`, `quality`, `file_name` |
+| `QCStatus` | `Pass`, `Warn`, or `Fail` |
+| `ChartData` | `LineGraph`, `QualityBoxPlot`, or `TileHeatmap` — for rendering |
 
 ## QC Modules
 

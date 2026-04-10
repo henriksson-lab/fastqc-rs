@@ -1,3 +1,4 @@
+use crate::charts::ChartData;
 use crate::config::FastQCConfig;
 use crate::encoding::phred::PhredEncoding;
 use crate::modules::module_config::ModuleConfig;
@@ -223,5 +224,35 @@ impl QCModule for PerBaseQuality {
             buf.push_str(&format_java_double(self.highest[i]));
             buf.push('\n');
         }
+    }
+
+    fn chart_data(&mut self) -> Option<ChartData> {
+        if !self.calculated {
+            self.get_percentages();
+        }
+        if self.means.is_empty() {
+            return None;
+        }
+
+        let (min_char, _) = self.calculate_offsets();
+        let encoding = PhredEncoding::get_fastq_encoding_offset(min_char)
+            .unwrap_or(PhredEncoding {
+                name: "Unknown".to_string(),
+                offset: 33,
+            });
+        // Sanger max quality ~41, Illumina max ~40
+        let y_max = if encoding.offset == 33 { 41.0 } else { 40.0 };
+
+        Some(ChartData::QualityBoxPlot {
+            means: self.means.clone(),
+            medians: self.medians.clone(),
+            lower_quartile: self.lower_quartile.clone(),
+            upper_quartile: self.upper_quartile.clone(),
+            tenth_percentile: self.lowest.clone(),
+            ninetieth_percentile: self.highest.clone(),
+            x_labels: self.x_labels.clone(),
+            y_min: 0.0,
+            y_max,
+        })
     }
 }
