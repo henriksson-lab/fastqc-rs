@@ -1,0 +1,30 @@
+[package]
+name = "fastqc-rs"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust port of FastQC - quality control for high-throughput sequencing data"
+license = "GPL-3.0"
+
+[[bin]]
+name = "fastqc-rs"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+flate2 = "1"
+bzip2 = "0.6"
+rayon = "1"
+zip = "2"
+statrs = "0.18"
+thiserror = "2"
+base64 = "0.22"
+noodles = { version = "0.88", features = ["bam", "sam", "bgzf", "core"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true
