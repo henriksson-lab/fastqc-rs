@@ -15,7 +15,7 @@ pub struct BasicStats {
     a_count: u64,
     t_count: u64,
     n_count: u64,
-    lowest_char: char,
+    lowest_char: u8,
     file_type: Option<String>,
 }
 
@@ -33,7 +33,7 @@ impl BasicStats {
             a_count: 0,
             t_count: 0,
             n_count: 0,
-            lowest_char: 126 as char,
+            lowest_char: 126,
             file_type: None,
         }
     }
@@ -43,7 +43,7 @@ impl BasicStats {
     }
 
     pub fn lowest_char(&self) -> char {
-        self.lowest_char
+        self.lowest_char as char
     }
 
     /// Format a base count with appropriate units.
@@ -151,7 +151,7 @@ impl QCModule for BasicStats {
             }
         }
 
-        for ch in sequence.quality.chars() {
+        for &ch in sequence.quality.as_bytes() {
             if ch < self.lowest_char {
                 self.lowest_char = ch;
             }
@@ -188,7 +188,7 @@ impl QCModule for BasicStats {
         buf.push('\n');
 
         buf.push_str("Encoding\t");
-        let encoding = PhredEncoding::get_fastq_encoding_offset(self.lowest_char)
+        let encoding = PhredEncoding::get_fastq_encoding_offset(self.lowest_char as char)
             .unwrap_or(PhredEncoding {
                 name: "Unknown".to_string(),
                 offset: 33,

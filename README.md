@@ -223,7 +223,14 @@ All 12 standard FastQC modules are implemented:
 
 ## Benchmarks
 
-### Single file (100k reads x 150bp, 31 MB FASTQ)
+### Real-world dataset (1.47M reads x 126bp, 119MB gzipped FASTQ)
+
+| Implementation | Wall time | Memory |
+|----------------|-----------|--------|
+| Java FastQC (JDK 19) | 13.2s | 512 MB |
+| **fastqc-rs** (native CPU) | **11.4s** | **57 MB** |
+
+### Small dataset (100k reads x 150bp, 31 MB FASTQ)
 
 | Implementation | Wall time | Speedup |
 |----------------|-----------|---------|

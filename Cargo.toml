@@ -19,6 +19,7 @@ statrs = "0.18"
 thiserror = "2"
 base64 = "0.22"
 noodles = { version = "0.88", features = ["bam", "sam", "bgzf", "core"] }
+memchr = "2"
 plotters = "0.3"
 plotters-bitmap = "0.3"
 image = "0.25"

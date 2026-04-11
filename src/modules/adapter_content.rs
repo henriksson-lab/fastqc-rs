@@ -8,15 +8,21 @@ use crate::utils::base_group::BaseGroup;
 
 const DEFAULT_ADAPTERS: &str = include_str!("../resources/adapter_list.txt");
 
+/// Fast byte-level substring search using memchr SIMD acceleration.
+#[inline]
+fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    memchr::memmem::find(haystack, needle)
+}
+
 struct Adapter {
-    sequence: String,
+    sequence: Vec<u8>,
     positions: Vec<u64>,
 }
 
 impl Adapter {
     fn new(sequence: &str) -> Self {
         Self {
-            sequence: sequence.to_string(),
+            sequence: sequence.as_bytes().to_vec(),
             positions: vec![0; 1],
         }
     }
@@ -34,9 +40,7 @@ impl Adapter {
         self.positions.resize(new_length, last_val);
     }
 
-    fn increment_count(&mut self, position: usize) {
-        self.positions[position] += 1;
-    }
+
 
     fn reset(&mut self) {
         self.positions.clear();
@@ -171,10 +175,10 @@ impl QCModule for AdapterContent {
         self.calculated = false;
         self.total_count += 1;
 
-        let seq = &sequence.sequence;
+        let seq = sequence.sequence.as_bytes();
 
         if seq.len() > self.longest_sequence
-            && seq.len() as i64 - self.longest_adapter as i64 > 0
+            && seq.len() > self.longest_adapter
         {
             self.longest_sequence = seq.len();
             for adapter in self.adapters.iter_mut() {
@@ -183,12 +187,12 @@ impl QCModule for AdapterContent {
         }
 
         for adapter in self.adapters.iter_mut() {
-            if let Some(index) = seq.find(&adapter.sequence) {
+            // Byte-level substring search — avoids UTF-8 overhead
+            if let Some(index) = find_bytes(seq, &adapter.sequence) {
                 let max_pos = self.longest_sequence.saturating_sub(self.longest_adapter);
-                for i in index..=max_pos {
-                    if i < adapter.positions.len() {
-                        adapter.increment_count(i);
-                    }
+                let end = max_pos.min(adapter.positions.len() - 1);
+                for i in index..=end {
+                    adapter.positions[i] += 1;
                 }
             }
         }
