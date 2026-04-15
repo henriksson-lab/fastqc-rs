@@ -85,8 +85,7 @@ impl PerSequenceGCContent {
         if first_mode > 0 {
             for i in (0..first_mode).rev() {
                 if self.gc_distribution[i]
-                    > self.gc_distribution[first_mode]
-                        - (self.gc_distribution[first_mode] / 10.0)
+                    > self.gc_distribution[first_mode] - (self.gc_distribution[first_mode] / 10.0)
                 {
                     mode += i as f64;
                     mode_duplicates += 1;
@@ -223,7 +222,9 @@ impl QCModule for PerSequenceGCContent {
         }
 
         let x_labels: Vec<String> = (0..=100).map(|i| i.to_string()).collect();
-        let max_y = self.gc_distribution.iter()
+        let max_y = self
+            .gc_distribution
+            .iter()
             .chain(self.theoretical_distribution.iter())
             .cloned()
             .fold(0.0_f64, f64::max);

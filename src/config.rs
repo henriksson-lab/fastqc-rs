@@ -39,6 +39,8 @@ pub struct FastQCConfig {
     pub dup_length: usize,
     /// Generate SVG images instead of PNG
     pub svg_output: bool,
+    /// Embed icons and charts as base64 data URIs in HTML
+    pub embed_images: bool,
 }
 
 impl Default for FastQCConfig {
@@ -62,6 +64,7 @@ impl Default for FastQCConfig {
             min_length: 0,
             dup_length: 50,
             svg_output: false,
+            embed_images: false,
         }
     }
 }

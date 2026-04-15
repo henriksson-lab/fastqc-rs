@@ -105,10 +105,10 @@ mod tests {
     fn test_percentile_single_value() {
         let mut qc = QualityCount::new();
         qc.add_value('I'); // ASCII 73
-        // total = 1 * 10 / 100 = 0 (integer division)
-        // Loop starts at i=offset=64, count starts at 0
-        // actualCounts[64] = 0, count = 0, 0 >= 0 => returns (64-64) = 0.0
-        // This matches Java behavior exactly.
+                           // total = 1 * 10 / 100 = 0 (integer division)
+                           // Loop starts at i=offset=64, count starts at 0
+                           // actualCounts[64] = 0, count = 0, 0 >= 0 => returns (64-64) = 0.0
+                           // This matches Java behavior exactly.
         let p = qc.get_percentile(64, 10);
         assert_eq!(p, 0.0);
 

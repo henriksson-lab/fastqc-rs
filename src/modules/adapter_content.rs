@@ -40,8 +40,6 @@ impl Adapter {
         self.positions.resize(new_length, last_val);
     }
 
-
-
     fn reset(&mut self) {
         self.positions.clear();
     }
@@ -68,7 +66,10 @@ impl AdapterContent {
 
         let text = if let Some(ref adapter_file) = fqc_config.adapter_file {
             std::fs::read_to_string(adapter_file).unwrap_or_else(|e| {
-                eprintln!("Warning: could not read adapter file {:?}: {}", adapter_file, e);
+                eprintln!(
+                    "Warning: could not read adapter file {:?}: {}",
+                    adapter_file, e
+                );
                 DEFAULT_ADAPTERS.to_string()
             })
         } else {
@@ -141,12 +142,12 @@ impl AdapterContent {
             for (g, group) in groups.iter().enumerate() {
                 let mut p = group.lower_count - 1;
                 while p < group.upper_count && p < positions.len() {
-                    self.enrichments[a][g] += (positions[p] as f64 * 100.0) / self.total_count as f64;
+                    self.enrichments[a][g] +=
+                        (positions[p] as f64 * 100.0) / self.total_count as f64;
                     p += 1;
                 }
 
-                self.enrichments[a][g] /=
-                    (group.upper_count - group.lower_count + 1) as f64;
+                self.enrichments[a][g] /= (group.upper_count - group.lower_count + 1) as f64;
             }
         }
 
@@ -177,9 +178,7 @@ impl QCModule for AdapterContent {
 
         let seq = sequence.sequence.as_bytes();
 
-        if seq.len() > self.longest_sequence
-            && seq.len() > self.longest_adapter
-        {
+        if seq.len() > self.longest_sequence && seq.len() > self.longest_adapter {
             self.longest_sequence = seq.len();
             for adapter in self.adapters.iter_mut() {
                 adapter.expand_length_to((self.longest_sequence - self.longest_adapter) + 1);
@@ -280,7 +279,10 @@ impl QCModule for AdapterContent {
             return None;
         }
 
-        let series: Vec<Series> = self.labels.iter().zip(self.enrichments.iter())
+        let series: Vec<Series> = self
+            .labels
+            .iter()
+            .zip(self.enrichments.iter())
             .map(|(name, data)| Series {
                 name: name.clone(),
                 data: data.clone(),

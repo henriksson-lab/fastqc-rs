@@ -37,8 +37,8 @@ impl PerSequenceQualityScores {
             return;
         }
 
-        let encoding = PhredEncoding::get_fastq_encoding_offset(self.lowest_char)
-            .unwrap_or(PhredEncoding {
+        let encoding =
+            PhredEncoding::get_fastq_encoding_offset(self.lowest_char).unwrap_or(PhredEncoding {
                 name: "Unknown".to_string(),
                 offset: 33,
             });

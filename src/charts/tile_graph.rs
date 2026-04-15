@@ -62,11 +62,7 @@ where
             let y2 = y_top + ((row + 1) as f64 * cell_height) as i32;
 
             // Map deviation to color: 0 = green, negative = blue, positive = red
-            let color = gradient.get_color(
-                (dev + max_deviation) / 2.0,
-                0.0,
-                max_deviation,
-            );
+            let color = gradient.get_color((dev + max_deviation) / 2.0, 0.0, max_deviation);
             root.draw(&Rectangle::new([(x1, y1), (x2, y2)], color.filled()))?;
         }
     }

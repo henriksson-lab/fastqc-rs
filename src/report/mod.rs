@@ -1,4 +1,7 @@
+use std::path::Path;
+
 use crate::modules::{QCModule, QCStatus};
+use crate::ChartImage;
 
 // Embed icon PNGs as base64 at compile time
 const FASTQC_ICON_PNG: &[u8] = include_bytes!("../resources/icons/fastqc_icon.png");
@@ -8,6 +11,65 @@ const ERROR_PNG: &[u8] = include_bytes!("../resources/icons/error.png");
 
 // Embed CSS template at compile time
 const HEADER_CSS: &str = include_str!("../resources/header_template.html");
+
+pub(crate) fn fastqc_icon_files() -> [(&'static str, &'static [u8]); 4] {
+    [
+        ("fastqc_icon.png", FASTQC_ICON_PNG),
+        ("warning.png", WARNING_PNG),
+        ("error.png", ERROR_PNG),
+        ("tick.png", TICK_PNG),
+    ]
+}
+
+/// Write a FastQC-compatible ZIP archive.
+///
+/// The archive layout mirrors Java FastQC:
+/// `<stem>_fastqc/fastqc_data.txt`, `<stem>_fastqc/fastqc_report.html`,
+/// `<stem>_fastqc/summary.txt`, `Icons/`, and `Images/`.
+pub fn write_fastqc_archive(
+    zip_path: impl AsRef<Path>,
+    stem: &str,
+    data_report: &str,
+    html_report: &str,
+    summary_report: &str,
+    chart_images: &[ChartImage],
+) -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+    use zip::write::SimpleFileOptions;
+    use zip::ZipWriter;
+
+    let file = std::fs::File::create(zip_path)?;
+    let mut zip = ZipWriter::new(file);
+    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+
+    let prefix = format!("{}_fastqc", stem);
+
+    zip.add_directory(format!("{}/", prefix), options)?;
+    zip.add_directory(format!("{}/Icons/", prefix), options)?;
+    zip.add_directory(format!("{}/Images/", prefix), options)?;
+
+    for (name, bytes) in fastqc_icon_files() {
+        zip.start_file(format!("{}/Icons/{}", prefix, name), options)?;
+        zip.write_all(bytes)?;
+    }
+
+    for image in chart_images {
+        zip.start_file(format!("{}/Images/{}", prefix, image.filename), options)?;
+        zip.write_all(&image.bytes)?;
+    }
+
+    zip.start_file(format!("{}/summary.txt", prefix), options)?;
+    zip.write_all(summary_report.as_bytes())?;
+
+    zip.start_file(format!("{}/fastqc_data.txt", prefix), options)?;
+    zip.write_all(data_report.as_bytes())?;
+
+    zip.start_file(format!("{}/fastqc_report.html", prefix), options)?;
+    zip.write_all(html_report.as_bytes())?;
+
+    zip.finish()?;
+    Ok(())
+}
 
 fn escape_html(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
@@ -89,8 +151,20 @@ fn to_base64(data: &[u8]) -> String {
     base64::engine::general_purpose::STANDARD.encode(data)
 }
 
-/// Return the base64 data URI for a status icon.
-fn status_icon_base64(status: QCStatus) -> String {
+fn status_icon_file(status: QCStatus) -> &'static str {
+    match status {
+        QCStatus::Pass => "tick.png",
+        QCStatus::Warn => "warning.png",
+        QCStatus::Fail => "error.png",
+    }
+}
+
+/// Return the image src for a status icon.
+fn status_icon_src(status: QCStatus, embed_images: bool) -> String {
+    if !embed_images {
+        return format!("Icons/{}", status_icon_file(status));
+    }
+
     let png_data = match status {
         QCStatus::Pass => TICK_PNG,
         QCStatus::Warn => WARNING_PNG,
@@ -180,9 +254,9 @@ pub fn generate_html_report(
     file_name: &str,
     version: &str,
     svg_output: bool,
+    embed_images: bool,
 ) -> String {
     let mut buf = String::new();
-    let fastqc_icon_b64 = to_base64(FASTQC_ICON_PNG);
 
     // Collect module info: (index_in_report, name, status)
     let mut module_info: Vec<(usize, String, QCStatus)> = Vec::new();
@@ -211,9 +285,13 @@ pub fn generate_html_report(
     // Header div
     buf.push_str("  <div class=\"header\">\n");
     buf.push_str("   <div id=\"header_title\">\n");
-    buf.push_str("    <img src=\"data:image/png;base64,");
-    buf.push_str(&fastqc_icon_b64);
-    buf.push_str("\" alt=\"FastQC\">FastQC Report\n");
+    if embed_images {
+        buf.push_str("    <img src=\"data:image/png;base64,");
+        buf.push_str(&to_base64(FASTQC_ICON_PNG));
+        buf.push_str("\" alt=\"FastQC\">FastQC Report\n");
+    } else {
+        buf.push_str("    <img src=\"Icons/fastqc_icon.png\" alt=\"FastQC\">FastQC Report\n");
+    }
     buf.push_str("   </div>\n");
     buf.push_str("   <div id=\"header_filename\">\n");
     buf.push_str("    ");
@@ -227,7 +305,7 @@ pub fn generate_html_report(
     buf.push_str("   <h2>Summary</h2>\n");
     buf.push_str("   <ul>\n");
     for (mod_idx, name, status) in &module_info {
-        let icon_uri = status_icon_base64(*status);
+        let icon_uri = status_icon_src(*status, embed_images);
         let alt = status_alt(*status);
         buf.push_str("    <li><img src=\"");
         buf.push_str(&icon_uri);
@@ -252,7 +330,7 @@ pub fn generate_html_report(
         }
 
         let status = module.status();
-        let icon_uri = status_icon_base64(status);
+        let icon_uri = status_icon_src(status, embed_images);
         let alt = status_alt(status);
         let name = module.name().to_string();
 
@@ -269,27 +347,43 @@ pub fn generate_html_report(
 
         // Render chart image if available
         if let Some(chart_data) = module.chart_data() {
-            let rendered = if svg_output {
-                crate::charts::render_chart_to_svg(&chart_data)
-                    .map(|bytes| ("image/svg+xml", bytes))
-            } else {
-                crate::charts::render_chart_to_png(&chart_data).map(|bytes| ("image/png", bytes))
-            };
+            if embed_images {
+                let rendered = if svg_output {
+                    crate::charts::render_chart_to_svg(&chart_data)
+                        .map(|bytes| ("image/svg+xml", bytes))
+                } else {
+                    crate::charts::render_chart_to_png(&chart_data)
+                        .map(|bytes| ("image/png", bytes))
+                };
 
-            match rendered {
-                Ok((mime_type, image_bytes)) => {
-                    let b64 = to_base64(&image_bytes);
-                    buf.push_str("    <p><img class=\"indented\" src=\"data:");
-                    buf.push_str(mime_type);
-                    buf.push_str(";base64,");
-                    buf.push_str(&b64);
-                    buf.push_str("\" alt=\"");
-                    buf.push_str(&escape_html(&name));
-                    buf.push_str("\"></p>\n");
+                match rendered {
+                    Ok((mime_type, image_bytes)) => {
+                        let b64 = to_base64(&image_bytes);
+                        buf.push_str("    <p><img class=\"indented\" src=\"data:");
+                        buf.push_str(mime_type);
+                        buf.push_str(";base64,");
+                        buf.push_str(&b64);
+                        buf.push_str("\" alt=\"");
+                        buf.push_str(&escape_html(&name));
+                        buf.push_str("\"></p>\n");
+                    }
+                    Err(e) => {
+                        eprintln!("Warning: failed to render chart for {}: {}", name, e);
+                    }
                 }
-                Err(e) => {
-                    eprintln!("Warning: failed to render chart for {}: {}", name, e);
+            } else {
+                let mut filename = chart_data.image_filename(&name);
+                if svg_output {
+                    filename = filename
+                        .strip_suffix(".png")
+                        .map(|stem| format!("{}.svg", stem))
+                        .unwrap_or_else(|| format!("{}.svg", filename));
                 }
+                buf.push_str("    <p><img class=\"indented\" src=\"Images/");
+                buf.push_str(&escape_html(&filename));
+                buf.push_str("\" alt=\"");
+                buf.push_str(&escape_html(&name));
+                buf.push_str("\"></p>\n");
             }
         }
 
@@ -316,4 +410,79 @@ pub fn generate_html_report(
     buf.push_str(" </body>\n</html>\n");
 
     buf
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::modules::{QCModule, QCStatus};
+
+    struct SummaryModule {
+        name: &'static str,
+        status: QCStatus,
+        ignore: bool,
+    }
+
+    impl QCModule for SummaryModule {
+        fn name(&self) -> &str {
+            self.name
+        }
+
+        fn description(&self) -> &str {
+            ""
+        }
+
+        fn process_sequence(&mut self, _sequence: &crate::sequence::Sequence) {}
+
+        fn reset(&mut self) {}
+
+        fn raises_error(&mut self) -> bool {
+            self.status == QCStatus::Fail
+        }
+
+        fn raises_warning(&mut self) -> bool {
+            self.status == QCStatus::Warn
+        }
+
+        fn ignore_filtered_sequences(&self) -> bool {
+            false
+        }
+
+        fn ignore_in_report(&self) -> bool {
+            self.ignore
+        }
+
+        fn make_data_report(&mut self, _buf: &mut String) {}
+    }
+
+    #[test]
+    fn test_generate_summary_report() {
+        let mut modules: Vec<Box<dyn QCModule>> = vec![
+            Box::new(SummaryModule {
+                name: "Pass Module",
+                status: QCStatus::Pass,
+                ignore: false,
+            }),
+            Box::new(SummaryModule {
+                name: "Warn Module",
+                status: QCStatus::Warn,
+                ignore: false,
+            }),
+            Box::new(SummaryModule {
+                name: "Fail Module",
+                status: QCStatus::Fail,
+                ignore: false,
+            }),
+            Box::new(SummaryModule {
+                name: "Ignored Module",
+                status: QCStatus::Fail,
+                ignore: true,
+            }),
+        ];
+
+        assert_eq!(
+            generate_summary_report(&mut modules, "sample.fastq"),
+            "PASS\tPass Module\tsample.fastq\nWARN\tWarn Module\tsample.fastq\nFAIL\tFail Module\tsample.fastq\n"
+        );
+    }
 }

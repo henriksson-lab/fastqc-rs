@@ -104,7 +104,7 @@ impl PerBaseQuality {
         let mut total = 0.0;
 
         // Java: for (int i=minbp-1;i<maxbp;i++)
-        for i in (min_bp - 1)..max_bp {
+        for i in (min_bp - 1)..max_bp.min(self.quality_counts.len()) {
             if self.quality_counts[i].get_total_count() > 100 {
                 count += 1;
                 total += self.quality_counts[i].get_percentile(offset, percentile);
@@ -122,7 +122,7 @@ impl PerBaseQuality {
         let mut count = 0;
         let mut total = 0.0;
 
-        for i in (min_bp - 1)..max_bp {
+        for i in (min_bp - 1)..max_bp.min(self.quality_counts.len()) {
             if self.quality_counts[i].get_total_count() > 0 {
                 count += 1;
                 total += self.quality_counts[i].get_mean(offset);

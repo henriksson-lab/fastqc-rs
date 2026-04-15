@@ -184,7 +184,11 @@ impl QCModule for BasicStats {
         buf.push('\n');
 
         buf.push_str("File type\t");
-        buf.push_str(self.file_type.as_deref().unwrap_or("Conventional base calls"));
+        buf.push_str(
+            self.file_type
+                .as_deref()
+                .unwrap_or("Conventional base calls"),
+        );
         buf.push('\n');
 
         buf.push_str("Encoding\t");

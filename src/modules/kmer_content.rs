@@ -38,7 +38,6 @@ impl Kmer {
         }
         self.positions[position] += 1;
     }
-
 }
 
 pub struct KmerContent {
@@ -86,7 +85,8 @@ impl KmerContent {
     fn add_kmer_count(&mut self, position: usize, kmer_length: usize, kmer: &str) {
         if position >= self.total_kmer_counts.len() {
             let old_len = self.total_kmer_counts.len();
-            self.total_kmer_counts.resize_with(position + 1, || vec![0u64; self.max_kmer_size]);
+            self.total_kmer_counts
+                .resize_with(position + 1, || vec![0u64; self.max_kmer_size]);
             // Ensure existing entries have the right length
             for i in old_len..self.total_kmer_counts.len() {
                 if self.total_kmer_counts[i].len() < self.max_kmer_size {
@@ -159,9 +159,7 @@ impl KmerContent {
                     let bd = Binomial::new(expected_proportion, total_group_count).unwrap();
                     if total_group_hits as f64 > predicted {
                         let cdf = bd.cdf(total_group_hits);
-                        binomial_p_values[g] = ((1.0 - cdf)
-                            * 4.0_f64.powi(kmer_len as i32))
-                            as f32;
+                        binomial_p_values[g] = ((1.0 - cdf) * 4.0_f64.powi(kmer_len as i32)) as f32;
                     } else {
                         binomial_p_values[g] = 1.0;
                     }
@@ -174,10 +172,12 @@ impl KmerContent {
 
             let mut lowest_p_value: f32 = 1.0;
             for i in 0..binomial_p_values.len() {
-                if binomial_p_values[i] < 0.01 && obs_exp_positions[i] > 5.0
-                    && binomial_p_values[i] < lowest_p_value {
-                        lowest_p_value = binomial_p_values[i];
-                    }
+                if binomial_p_values[i] < 0.01
+                    && obs_exp_positions[i] > 5.0
+                    && binomial_p_values[i] < lowest_p_value
+                {
+                    lowest_p_value = binomial_p_values[i];
+                }
             }
 
             if lowest_p_value < 0.01 {
@@ -196,7 +196,9 @@ impl KmerContent {
         uneven_kmers.sort_by(|a, b| {
             let a_max = a.3.iter().cloned().fold(0.0_f32, f32::max);
             let b_max = b.3.iter().cloned().fold(0.0_f32, f32::max);
-            b_max.partial_cmp(&a_max).unwrap_or(std::cmp::Ordering::Equal)
+            b_max
+                .partial_cmp(&a_max)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
 
         // Truncate to top 20
@@ -343,10 +345,7 @@ impl QCModule for KmerContent {
 
         let enriched = self.enriched_kmers.as_ref().unwrap();
 
-        if enriched.is_empty() {
-            // No overrepresented Kmers
-            buf.push_str("#Sequence\tCount\tPValue\tObs/Exp Max\tMax Obs/Exp Position\n");
-        } else {
+        if !enriched.is_empty() {
             buf.push_str("#Sequence\tCount\tPValue\tObs/Exp Max\tMax Obs/Exp Position\n");
             for ek in enriched {
                 buf.push_str(&ek.sequence);
@@ -381,7 +380,9 @@ impl QCModule for KmerContent {
             .iter()
             .map(|ek| {
                 // Convert obs/exp to log2 scale
-                let data: Vec<f64> = ek.obs_exp_positions.iter()
+                let data: Vec<f64> = ek
+                    .obs_exp_positions
+                    .iter()
                     .map(|&v| if v > 0.0 { (v as f64).log2() } else { 0.0 })
                     .collect();
                 Series {
@@ -391,11 +392,13 @@ impl QCModule for KmerContent {
             })
             .collect();
 
-        let max_y = series.iter()
+        let max_y = series
+            .iter()
             .flat_map(|s| s.data.iter())
             .cloned()
             .fold(0.0_f64, f64::max);
-        let min_y = series.iter()
+        let min_y = series
+            .iter()
             .flat_map(|s| s.data.iter())
             .cloned()
             .fold(0.0_f64, f64::min);

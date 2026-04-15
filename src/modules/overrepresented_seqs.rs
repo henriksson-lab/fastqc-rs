@@ -57,8 +57,7 @@ impl OverRepresentedSeqs {
         fqc_config: FastQCConfig,
         shared: Arc<RwLock<SharedDuplicationData>>,
     ) -> Self {
-        let contaminant_finder =
-            ContaminantFinder::new(fqc_config.contaminant_file.as_deref());
+        let contaminant_finder = ContaminantFinder::new(fqc_config.contaminant_file.as_deref());
 
         Self {
             shared,
@@ -165,9 +164,9 @@ impl QCModule for OverRepresentedSeqs {
         if !self.overrepresented_seqs.is_empty()
             && self.overrepresented_seqs[0].percentage
                 > self.config.get_param("overrepresented", "error")
-            {
-                return true;
-            }
+        {
+            return true;
+        }
         false
     }
 

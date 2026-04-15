@@ -71,10 +71,8 @@ impl Contaminant {
 
         // Special case for queries between 8-20bp: exact substring match
         if query.len() < 20 && query.len() >= 8 {
-            let forward_str =
-                std::str::from_utf8(&self.forward).unwrap();
-            let reverse_str =
-                std::str::from_utf8(&self.reverse).unwrap();
+            let forward_str = std::str::from_utf8(&self.forward).unwrap();
+            let reverse_str = std::str::from_utf8(&self.reverse).unwrap();
 
             if forward_str.contains(&query) {
                 return Some(ContaminantHit {
@@ -210,10 +208,7 @@ impl ContaminantFinder {
     pub fn new(contaminant_file: Option<&Path>) -> Self {
         let text = if let Some(path) = contaminant_file {
             std::fs::read_to_string(path).unwrap_or_else(|e| {
-                eprintln!(
-                    "Warning: could not read contaminant file {:?}: {}",
-                    path, e
-                );
+                eprintln!("Warning: could not read contaminant file {:?}: {}", path, e);
                 DEFAULT_CONTAMINANTS.to_string()
             })
         } else {

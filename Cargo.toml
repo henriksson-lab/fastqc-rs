@@ -1,6 +1,6 @@
 [package]
 name = "fastqc-rs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A Rust port of FastQC - quality control for high-throughput sequencing data"
 license = "GPL-3.0"

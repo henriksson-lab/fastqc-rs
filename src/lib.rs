@@ -101,23 +101,28 @@ pub struct ModuleResult {
 }
 
 /// Result of running FastQC on a single file or sequence set.
+#[derive(Debug)]
 pub struct FastQCReport {
     /// The text data report (fastqc_data.txt content)
     pub data_report: String,
-    /// The HTML report with embedded charts (fastqc_report.html content)
+    /// The HTML report (fastqc_report.html content)
     pub html_report: String,
-    /// FastQC summary.txt content
+    /// FastQC `summary.txt` content.
     pub summary_report: String,
-    /// Rendered chart images for the FastQC archive
+    /// Rendered chart images for a FastQC-compatible archive.
     pub chart_images: Vec<ChartImage>,
     /// Per-module structured results for programmatic access
     pub modules: Vec<ModuleResult>,
 }
 
 /// Rendered chart image stored in the FastQC archive.
+#[derive(Debug, Clone)]
 pub struct ChartImage {
+    /// Archive filename, usually under `Images/` when written to a FastQC zip.
     pub filename: String,
+    /// MIME type for the rendered chart, e.g. `image/png` or `image/svg+xml`.
     pub mime_type: String,
+    /// Encoded image bytes.
     pub bytes: Vec<u8>,
 }
 
@@ -303,11 +308,19 @@ fn run_fastqc_on_paths(
 
     let mut modules = create_modules(config);
     let mut count = 0u64;
+    let sequence_report_name = if paths.len() > 1 {
+        paths
+            .first()
+            .map(|path| file_name_string(path))
+            .unwrap_or_else(|| report_name.to_string())
+    } else {
+        report_name.to_string()
+    };
 
     for path in paths {
         let format = detect_format(path, config);
         let only_mapped = format == "bam_mapped" || format == "sam_mapped";
-        let report_name = report_name.to_string();
+        let sequence_report_name = sequence_report_name.clone();
 
         count += match format.as_str() {
             "fast5" => {
@@ -317,7 +330,7 @@ fn run_fastqc_on_paths(
                 let bam = bam_file::BamFileReader::open(path, only_mapped)?;
                 let sequences = bam.map(move |r| {
                     r.map(|mut seq| {
-                        seq.file_name = report_name.clone();
+                        seq.file_name = sequence_report_name.clone();
                         seq
                     })
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
@@ -328,7 +341,7 @@ fn run_fastqc_on_paths(
                 let sam = bam_file::SamFileReader::open(path, only_mapped)?;
                 let sequences = sam.map(move |r| {
                     r.map(|mut seq| {
-                        seq.file_name = report_name.clone();
+                        seq.file_name = sequence_report_name.clone();
                         seq
                     })
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
@@ -339,7 +352,7 @@ fn run_fastqc_on_paths(
                 let fq = FastQFile::open(path, config.casava, config.nofilter)?;
                 let sequences = fq.map(move |r| {
                     r.map(|mut seq| {
-                        seq.file_name = report_name.clone();
+                        seq.file_name = sequence_report_name.clone();
                         seq
                     })
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
@@ -358,8 +371,13 @@ fn run_fastqc_on_paths(
 
     let data_report = report::generate_data_report(&mut modules, VERSION);
     let summary_report = report::generate_summary_report(&mut modules, report_name);
-    let html_report =
-        report::generate_html_report(&mut modules, report_name, VERSION, config.svg_output);
+    let html_report = report::generate_html_report(
+        &mut modules,
+        report_name,
+        VERSION,
+        config.svg_output,
+        config.embed_images,
+    );
     let chart_images = collect_chart_images(&mut modules, config.svg_output);
 
     // Extract structured per-module results
@@ -418,76 +436,6 @@ fn collect_chart_images(modules: &mut [Box<dyn QCModule>], svg_output: bool) -> 
         .collect()
 }
 
-/// Create a ZIP archive containing both the data and HTML reports.
-/// The ZIP structure mirrors Java FastQC: <stem>_fastqc/fastqc_data.txt and <stem>_fastqc/fastqc_report.html
-fn create_zip_archive(
-    zip_path: &Path,
-    stem: &str,
-    data_report: &str,
-    html_report: &str,
-    summary_report: &str,
-    chart_images: &[ChartImage],
-) -> Result<(), Box<dyn std::error::Error>> {
-    use std::io::Write;
-    use zip::write::SimpleFileOptions;
-    use zip::ZipWriter;
-
-    let file = std::fs::File::create(zip_path)?;
-    let mut zip = ZipWriter::new(file);
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-
-    let prefix = format!("{}_fastqc", stem);
-
-    zip.add_directory(format!("{}/", prefix), options)?;
-    zip.add_directory(format!("{}/Icons/", prefix), options)?;
-    zip.add_directory(format!("{}/Images/", prefix), options)?;
-
-    for (name, bytes) in icon_files() {
-        zip.start_file(format!("{}/Icons/{}", prefix, name), options)?;
-        zip.write_all(bytes)?;
-    }
-
-    for image in chart_images {
-        zip.start_file(format!("{}/Images/{}", prefix, image.filename), options)?;
-        zip.write_all(&image.bytes)?;
-    }
-
-    zip.start_file(format!("{}/summary.txt", prefix), options)?;
-    zip.write_all(summary_report.as_bytes())?;
-
-    // Write fastqc_data.txt
-    zip.start_file(format!("{}/fastqc_data.txt", prefix), options)?;
-    zip.write_all(data_report.as_bytes())?;
-
-    // Write fastqc_report.html
-    zip.start_file(format!("{}/fastqc_report.html", prefix), options)?;
-    zip.write_all(html_report.as_bytes())?;
-
-    zip.finish()?;
-    Ok(())
-}
-
-fn icon_files() -> [(&'static str, &'static [u8]); 4] {
-    [
-        (
-            "fastqc_icon.png",
-            include_bytes!("resources/icons/fastqc_icon.png").as_slice(),
-        ),
-        (
-            "warning.png",
-            include_bytes!("resources/icons/warning.png").as_slice(),
-        ),
-        (
-            "error.png",
-            include_bytes!("resources/icons/error.png").as_slice(),
-        ),
-        (
-            "tick.png",
-            include_bytes!("resources/icons/tick.png").as_slice(),
-        ),
-    ]
-}
-
 /// Process a single FastQC input group: analyze, write reports.
 fn process_analysis_input(
     input: &AnalysisInput,
@@ -510,7 +458,7 @@ fn process_analysis_input(
 
     // Create ZIP archive containing the FastQC report folder
     let zip_path = output_dir.join(format!("{}_fastqc.zip", stem));
-    create_zip_archive(
+    report::write_fastqc_archive(
         &zip_path,
         stem,
         &report.data_report,
@@ -528,7 +476,7 @@ fn process_analysis_input(
         std::fs::write(extract_dir.join("fastqc_data.txt"), &report.data_report)?;
         std::fs::write(extract_dir.join("fastqc_report.html"), &report.html_report)?;
         std::fs::write(extract_dir.join("summary.txt"), &report.summary_report)?;
-        for (name, bytes) in icon_files() {
+        for (name, bytes) in report::fastqc_icon_files() {
             std::fs::write(extract_dir.join("Icons").join(name), bytes)?;
         }
         for image in &report.chart_images {
@@ -576,15 +524,20 @@ pub fn run_fastqc(
         analysis::run_analysis(sequences, &mut modules, config.quiet, config.min_length)?;
         let data_report = report::generate_data_report(&mut modules, VERSION);
         let summary_report = report::generate_summary_report(&mut modules, "stdin");
-        let html_report =
-            report::generate_html_report(&mut modules, "stdin", VERSION, config.svg_output);
+        let html_report = report::generate_html_report(
+            &mut modules,
+            "stdin",
+            VERSION,
+            config.svg_output,
+            config.embed_images,
+        );
         let chart_images = collect_chart_images(&mut modules, config.svg_output);
 
         let output_dir = config.output_dir.as_deref().unwrap_or(Path::new("."));
         let html_path = output_dir.join("stdin_fastqc.html");
         std::fs::write(&html_path, &html_report)?;
         let zip_path = output_dir.join("stdin_fastqc.zip");
-        create_zip_archive(
+        report::write_fastqc_archive(
             &zip_path,
             "stdin",
             &data_report,
@@ -600,7 +553,7 @@ pub fn run_fastqc(
             std::fs::write(extract_dir.join("fastqc_data.txt"), &data_report)?;
             std::fs::write(extract_dir.join("fastqc_report.html"), &html_report)?;
             std::fs::write(extract_dir.join("summary.txt"), &summary_report)?;
-            for (name, bytes) in icon_files() {
+            for (name, bytes) in report::fastqc_icon_files() {
                 std::fs::write(extract_dir.join("Icons").join(name), bytes)?;
             }
             for image in &chart_images {
@@ -688,6 +641,7 @@ impl FastQCRunner {
             "sequences",
             VERSION,
             self.config.svg_output,
+            self.config.embed_images,
         );
         let chart_images = collect_chart_images(&mut modules, self.config.svg_output);
 
@@ -718,5 +672,137 @@ impl FastQCRunner {
     /// Run QC on a file path and return both reports.
     pub fn run_file(&self, path: &Path) -> Result<FastQCReport, Box<dyn std::error::Error>> {
         run_fastqc_on_file(path, &self.config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tempdir() -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let dir =
+            std::env::temp_dir().join(format!("fastqc_rs_lib_{}_{}", std::process::id(), nanos));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn test_strip_fastqc_suffixes() {
+        for (input, expected) in [
+            ("reads.fastq", "reads"),
+            ("reads.fq", "reads"),
+            ("reads.fastq.gz", "reads"),
+            ("reads.fq.gz", "reads"),
+            ("reads.fastq.bz2", "reads"),
+            ("reads.fq.bz2", "reads"),
+            ("reads.txt", "reads"),
+            ("reads.csfastq", "reads"),
+            ("reads.sam", "reads"),
+            ("reads.bam", "reads"),
+            ("reads.ubam", "reads"),
+        ] {
+            assert_eq!(strip_fastqc_suffixes(input), expected);
+        }
+    }
+
+    #[test]
+    fn test_casava_basename_parsing() {
+        assert_eq!(
+            casava_basename("sample_001.fastq.gz"),
+            Some("sample.fastq.gz".to_string())
+        );
+        assert_eq!(
+            casava_basename("sample_123.fastq"),
+            Some("sample.fastq".to_string())
+        );
+        assert_eq!(casava_basename("sample.fastq.gz"), None);
+        assert_eq!(casava_basename("sample_ABC.fastq"), None);
+    }
+
+    #[test]
+    fn test_nanopore_basename_parsing() {
+        assert_eq!(
+            nanopore_basename("Computer_Sample_42_ch100_file7_strand.fast5"),
+            Some("Computer_Sample_42".to_string())
+        );
+        assert_eq!(
+            nanopore_basename("Computer_Sample_42.fast5"),
+            Some("Computer_Sample_42".to_string())
+        );
+        assert_eq!(nanopore_basename("short.fast5"), None);
+    }
+
+    #[test]
+    fn test_nanopore_directory_scan_depth_and_muxscan_filter() {
+        let dir = tempdir();
+        let nested = dir.join("nested");
+        let deep = nested.join("deep");
+        std::fs::create_dir(&nested).unwrap();
+        std::fs::create_dir(&deep).unwrap();
+
+        std::fs::write(dir.join("Run_Sample_001_ch1_file1_strand.fast5"), b"").unwrap();
+        std::fs::write(nested.join("Run_Sample_001_ch1_file2_strand.fast5"), b"").unwrap();
+        std::fs::write(nested.join("Run_Sample_001_muxscan.fast5"), b"").unwrap();
+        std::fs::write(deep.join("Run_Sample_001_ch1_file3_strand.fast5"), b"").unwrap();
+
+        let config = FastQCConfig {
+            nano: true,
+            ..Default::default()
+        };
+        let inputs =
+            collect_analysis_inputs(&[dir.to_string_lossy().to_string()], &config).unwrap();
+
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(inputs[0].report_name, "Run_Sample_001");
+        assert_eq!(inputs[0].paths.len(), 2);
+        assert!(inputs[0]
+            .paths
+            .iter()
+            .all(|path| !file_name_string(path).contains("muxscan")));
+        assert!(inputs[0]
+            .paths
+            .iter()
+            .all(|path| path.parent() != Some(deep.as_path())));
+    }
+
+    #[test]
+    fn test_casava_invalid_names_become_singletons() {
+        let dir = tempdir();
+        let grouped_a = dir.join("sample_001.fastq");
+        let grouped_b = dir.join("sample_002.fastq");
+        let singleton = dir.join("other.fastq");
+        for path in [&grouped_a, &grouped_b, &singleton] {
+            std::fs::write(path, b"").unwrap();
+        }
+
+        let config = FastQCConfig {
+            casava: true,
+            ..Default::default()
+        };
+        let inputs = collect_analysis_inputs(
+            &[
+                grouped_a.to_string_lossy().to_string(),
+                grouped_b.to_string_lossy().to_string(),
+                singleton.to_string_lossy().to_string(),
+            ],
+            &config,
+        )
+        .unwrap();
+
+        let grouped = inputs
+            .iter()
+            .find(|input| input.report_name == "sample.fastq")
+            .unwrap();
+        let single = inputs
+            .iter()
+            .find(|input| input.report_name == "other.fastq")
+            .unwrap();
+
+        assert_eq!(grouped.paths.len(), 2);
+        assert_eq!(single.paths.len(), 1);
     }
 }

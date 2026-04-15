@@ -10,7 +10,11 @@ fn base_dir() -> PathBuf {
 /// Compute mean squared error between two RGB images of the same dimensions.
 /// Returns a normalized score where 0.0 = identical, higher = more different.
 fn image_mse(a: &image::RgbImage, b: &image::RgbImage) -> f64 {
-    assert_eq!(a.dimensions(), b.dimensions(), "Image dimensions must match");
+    assert_eq!(
+        a.dimensions(),
+        b.dimensions(),
+        "Image dimensions must match"
+    );
     let (w, h) = a.dimensions();
     let total_pixels = (w * h) as f64;
     let mut sum_sq_diff = 0.0_f64;
@@ -37,7 +41,8 @@ fn load_png(bytes: &[u8]) -> image::RgbImage {
 
 /// Load a PNG from a file path.
 fn load_png_file(path: &std::path::Path) -> image::RgbImage {
-    let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
+    let bytes =
+        std::fs::read(path).unwrap_or_else(|e| panic!("Failed to read {}: {}", path.display(), e));
     load_png(&bytes)
 }
 
@@ -77,12 +82,7 @@ fn test_charts_render_without_panic() {
             assert!(!png.is_empty(), "Empty PNG for {}", name);
             // Verify it's a valid PNG
             let img = image::load_from_memory(&png);
-            assert!(
-                img.is_ok(),
-                "Invalid PNG for {}: {:?}",
-                name,
-                img.err()
-            );
+            assert!(img.is_ok(), "Invalid PNG for {}: {:?}", name, img.err());
         }
     }
 }
@@ -95,18 +95,8 @@ fn test_charts_have_correct_dimensions() {
             let (expected_w, expected_h) = cd.dimensions();
             let png = charts::render_chart_to_png(cd).unwrap();
             let img = image::load_from_memory(&png).unwrap();
-            assert_eq!(
-                img.width(),
-                expected_w,
-                "Width mismatch for {}",
-                name
-            );
-            assert_eq!(
-                img.height(),
-                expected_h,
-                "Height mismatch for {}",
-                name
-            );
+            assert_eq!(img.width(), expected_w, "Width mismatch for {}", name);
+            assert_eq!(img.height(), expected_h, "Height mismatch for {}", name);
         }
     }
 }
@@ -129,7 +119,10 @@ fn test_charts_vs_java_golden() {
         ("Per base sequence content", "per_base_sequence_content.png"),
         ("Per sequence GC content", "per_sequence_gc_content.png"),
         ("Per base N content", "per_base_n_content.png"),
-        ("Sequence Length Distribution", "sequence_length_distribution.png"),
+        (
+            "Sequence Length Distribution",
+            "sequence_length_distribution.png",
+        ),
         ("Sequence Duplication Levels", "duplication_levels.png"),
         ("Adapter Content", "adapter_content.png"),
     ];
@@ -177,10 +170,7 @@ fn test_charts_vs_java_golden() {
         let mse = image_mse(&rust_img, &java_img);
         // MSE threshold: 0.05 is very generous (allows significant font/AA differences)
         // Typical values: 0.0 = identical, 0.01 = minor differences, 0.1 = major differences
-        println!(
-            "  {} MSE: {:.6} (threshold: 0.05)",
-            module_name, mse
-        );
+        println!("  {} MSE: {:.6} (threshold: 0.05)", module_name, mse);
 
         // Don't assert failure for now — just report. The charts use different rendering
         // engines (Java AWT vs plotters) so exact matching is not expected.

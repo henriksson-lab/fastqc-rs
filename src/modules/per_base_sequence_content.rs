@@ -59,7 +59,7 @@ impl PerBaseSequenceContent {
             let mut total: u64 = 0;
 
             // Java: for (int bp=groups[i].lowerCount()-1;bp<groups[i].upperCount();bp++)
-            for bp in (group.lower_count - 1)..group.upper_count {
+            for bp in (group.lower_count - 1)..group.upper_count.min(self.g_counts.len()) {
                 total += self.g_counts[bp];
                 total += self.c_counts[bp];
                 total += self.a_counts[bp];
@@ -203,10 +203,22 @@ impl QCModule for PerBaseSequenceContent {
         // Order: %T, %C, %A, %G (indices 0, 1, 2, 3 in the percentages array)
         Some(ChartData::LineGraph {
             series: vec![
-                Series { name: "%T".to_string(), data: pct[0].clone() },
-                Series { name: "%C".to_string(), data: pct[1].clone() },
-                Series { name: "%A".to_string(), data: pct[2].clone() },
-                Series { name: "%G".to_string(), data: pct[3].clone() },
+                Series {
+                    name: "%T".to_string(),
+                    data: pct[0].clone(),
+                },
+                Series {
+                    name: "%C".to_string(),
+                    data: pct[1].clone(),
+                },
+                Series {
+                    name: "%A".to_string(),
+                    data: pct[2].clone(),
+                },
+                Series {
+                    name: "%G".to_string(),
+                    data: pct[3].clone(),
+                },
             ],
             x_labels: self.x_categories.clone(),
             x_axis_label: "Position in read (bp)".to_string(),

@@ -37,12 +37,14 @@ impl GCModel {
                 low_count = read_length as f64;
             }
 
-            let low_percentage =
-                java_round((low_count * 100.0) / read_length as f64) as usize;
-            let high_percentage =
-                java_round((high_count * 100.0) / read_length as f64) as usize;
+            let low_percentage = java_round((low_count * 100.0) / read_length as f64) as usize;
+            let high_percentage = java_round((high_count * 100.0) / read_length as f64) as usize;
 
-            for item in claiming_counts.iter_mut().take(high_percentage + 1).skip(low_percentage) {
+            for item in claiming_counts
+                .iter_mut()
+                .take(high_percentage + 1)
+                .skip(low_percentage)
+            {
                 *item += 1;
             }
         }
@@ -66,13 +68,16 @@ impl GCModel {
                 low_count = read_length as f64;
             }
 
-            let low_percentage =
-                java_round((low_count * 100.0) / read_length as f64) as usize;
-            let high_percentage =
-                java_round((high_count * 100.0) / read_length as f64) as usize;
+            let low_percentage = java_round((low_count * 100.0) / read_length as f64) as usize;
+            let high_percentage = java_round((high_count * 100.0) / read_length as f64) as usize;
 
             let mut model_values = Vec::with_capacity(high_percentage - low_percentage + 1);
-            for (p, &claim_count) in claiming_counts.iter().enumerate().take(high_percentage + 1).skip(low_percentage) {
+            for (p, &claim_count) in claiming_counts
+                .iter()
+                .enumerate()
+                .take(high_percentage + 1)
+                .skip(low_percentage)
+            {
                 model_values.push(GCModelValue {
                     percentage: p,
                     increment: 1.0 / claim_count as f64,

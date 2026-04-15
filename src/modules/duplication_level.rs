@@ -42,10 +42,22 @@ impl DuplicationLevel {
             self.total_percentages = Some(tp);
             self.percent_different_seqs = 100.0;
             self.labels = vec![
-                "1".into(), "2".into(), "3".into(), "4".into(), "5".into(),
-                "6".into(), "7".into(), "8".into(), "9".into(), ">10".into(),
-                ">50".into(), ">100".into(), ">500".into(), ">1k".into(),
-                ">5k".into(), ">10k+".into(),
+                "1".into(),
+                "2".into(),
+                "3".into(),
+                "4".into(),
+                "5".into(),
+                "6".into(),
+                "7".into(),
+                "8".into(),
+                "9".into(),
+                ">10".into(),
+                ">50".into(),
+                ">100".into(),
+                ">500".into(),
+                ">1k".into(),
+                ">5k".into(),
+                ">10k+".into(),
             ];
             return;
         }
@@ -61,12 +73,7 @@ impl DuplicationLevel {
         for (&dup_level, &count) in &collated_counts {
             corrected_counts.insert(
                 dup_level,
-                get_corrected_count(
-                    data.count_at_unique_limit,
-                    data.count,
-                    dup_level,
-                    count,
-                ),
+                get_corrected_count(data.count_at_unique_limit, data.count, dup_level, count),
             );
         }
 
@@ -158,8 +165,8 @@ fn get_corrected_count(
         1.0 - (number_of_observations as f64 / (number_of_observations as f64 + 0.01));
 
     for i in 0..count_at_limit {
-        p_not_seeing_at_limit *= ((total_count - i) as f64 - duplication_level as f64)
-            / (total_count - i) as f64;
+        p_not_seeing_at_limit *=
+            ((total_count - i) as f64 - duplication_level as f64) / (total_count - i) as f64;
 
         if p_not_seeing_at_limit < limit_of_caring {
             p_not_seeing_at_limit = 0.0;

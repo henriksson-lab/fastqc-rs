@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
-use iced::widget::{button, center, column, container, horizontal_rule, image, row, scrollable, text};
+use iced::widget::{
+    button, center, column, container, horizontal_rule, image, row, scrollable, text,
+};
 use iced::{Element, Length, Subscription, Task, Theme};
 
 use crate::charts::{self, ChartData};
@@ -22,8 +24,8 @@ impl TableData {
             if line.is_empty() {
                 continue;
             }
-            if line.starts_with('#') {
-                headers = line[1..].split('\t').map(|s| s.to_string()).collect();
+            if let Some(header_line) = line.strip_prefix('#') {
+                headers = header_line.split('\t').map(|s| s.to_string()).collect();
             } else {
                 rows.push(line.split('\t').map(|s| s.to_string()).collect());
             }
@@ -83,7 +85,15 @@ fn render_status_icon(size: u32, bg: [u8; 3], symbol: &str) -> iced::widget::ima
             // Short leg: from (-s, 0) to (-s/3, s*2/3)
             // Long leg: from (-s/3, s*2/3) to (s, -s*2/3)
             draw_thick_line(&mut img, cx - s, cy, cx - s / 3, cy + s * 2 / 3, white, 2);
-            draw_thick_line(&mut img, cx - s / 3, cy + s * 2 / 3, cx + s, cy - s * 2 / 3, white, 2);
+            draw_thick_line(
+                &mut img,
+                cx - s / 3,
+                cy + s * 2 / 3,
+                cx + s,
+                cy - s * 2 / 3,
+                white,
+                2,
+            );
         }
         "exclaim" => {
             // Draw exclamation mark: vertical bar + dot
@@ -172,9 +182,9 @@ impl StatusIcons {
     fn new() -> Self {
         let size = 32; // Render at 2x for retina, display at 16px
         Self {
-            pass: render_status_icon(size, [0x22, 0xbb, 0x22], "check"),  // green
+            pass: render_status_icon(size, [0x22, 0xbb, 0x22], "check"), // green
             warn: render_status_icon(size, [0xe6, 0xa8, 0x00], "exclaim"), // orange/yellow
-            fail: render_status_icon(size, [0xdd, 0x22, 0x22], "cross"),   // red
+            fail: render_status_icon(size, [0xdd, 0x22, 0x22], "cross"), // red
         }
     }
 
@@ -234,13 +244,23 @@ fn analyze_file(path: PathBuf) -> Result<(String, Vec<ModuleResult>), String> {
                 let bam = crate::sequence::bam_file::BamFileReader::open(&path, only_mapped)?;
                 let sequences =
                     bam.map(|r| r.map_err(|e| Box::new(e) as Box<dyn std::error::Error>));
-                crate::analysis::run_analysis(sequences, &mut modules_raw, true, config.min_length)?;
+                crate::analysis::run_analysis(
+                    sequences,
+                    &mut modules_raw,
+                    true,
+                    config.min_length,
+                )?;
             }
             "sam" | "sam_mapped" => {
                 let sam = crate::sequence::bam_file::SamFileReader::open(&path, only_mapped)?;
                 let sequences =
                     sam.map(|r| r.map_err(|e| Box::new(e) as Box<dyn std::error::Error>));
-                crate::analysis::run_analysis(sequences, &mut modules_raw, true, config.min_length)?;
+                crate::analysis::run_analysis(
+                    sequences,
+                    &mut modules_raw,
+                    true,
+                    config.min_length,
+                )?;
             }
             _ => {
                 let fq = crate::sequence::fastq_file::FastQFile::open(
@@ -250,7 +270,12 @@ fn analyze_file(path: PathBuf) -> Result<(String, Vec<ModuleResult>), String> {
                 )?;
                 let sequences =
                     fq.map(|r| r.map_err(|e| Box::new(e) as Box<dyn std::error::Error>));
-                crate::analysis::run_analysis(sequences, &mut modules_raw, true, config.min_length)?;
+                crate::analysis::run_analysis(
+                    sequences,
+                    &mut modules_raw,
+                    true,
+                    config.min_length,
+                )?;
             }
         }
         Ok(())
@@ -286,10 +311,8 @@ impl FastQCApp {
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| "unknown".to_string());
-                let task = Task::perform(
-                    async move { analyze_file(path) },
-                    Message::AnalysisComplete,
-                );
+                let task =
+                    Task::perform(async move { analyze_file(path) }, Message::AnalysisComplete);
                 (
                     Self {
                         state: AppState::Analyzing(file_name),
@@ -343,10 +366,7 @@ impl FastQCApp {
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| "unknown".to_string());
                 self.state = AppState::Analyzing(file_name);
-                return Task::perform(
-                    async move { analyze_file(path) },
-                    Message::AnalysisComplete,
-                );
+                return Task::perform(async move { analyze_file(path) }, Message::AnalysisComplete);
             }
             Message::AnalysisComplete(result) => match result {
                 Ok((file_name, modules)) => {
@@ -355,8 +375,7 @@ impl FastQCApp {
                     if !modules.is_empty() {
                         if let Some(ref cd) = modules[0].chart_data {
                             if let Ok(png) = charts::render_chart_to_png(cd) {
-                                chart_cache[0] =
-                                    Some(iced::widget::image::Handle::from_bytes(png));
+                                chart_cache[0] = Some(iced::widget::image::Handle::from_bytes(png));
                             }
                         }
                     }
@@ -448,14 +467,14 @@ impl FastQCApp {
             .enumerate()
             .map(|(i, m)| {
                 let icon_handle = self.icons.get(&m.status);
-                let icon = image(icon_handle)
-                    .width(16)
-                    .height(16);
+                let icon = image(icon_handle).width(16).height(16);
 
                 let label = text(&m.name).size(13);
 
                 let item = button(
-                    row![icon, label].spacing(6).align_y(iced::Alignment::Center),
+                    row![icon, label]
+                        .spacing(6)
+                        .align_y(iced::Alignment::Center),
                 )
                 .on_press(Message::SelectModule(i))
                 .width(Length::Fill)
@@ -476,9 +495,9 @@ impl FastQCApp {
             })
             .collect();
 
-        let sidebar = container(
-            scrollable(column(sidebar_content).spacing(1).width(Length::Fill))
-        )
+        let sidebar = container(scrollable(
+            column(sidebar_content).spacing(1).width(Length::Fill),
+        ))
         .width(220)
         .height(Length::Fill)
         .style(|_theme: &Theme| container::Style {
@@ -498,8 +517,7 @@ impl FastQCApp {
             column![text("No modules loaded").size(20)]
         } else {
             let module = &modules[selected];
-            let mut content =
-                column![text(&module.name).size(20), horizontal_rule(1),].spacing(10);
+            let mut content = column![text(&module.name).size(20), horizontal_rule(1),].spacing(10);
 
             if let Some(ref handle) = chart_cache[selected] {
                 content = content.push(
@@ -522,9 +540,9 @@ impl FastQCApp {
                             .width(Length::FillPortion(1))
                             .padding(2)
                             .style(|_theme: &Theme| container::Style {
-                                background: Some(iced::Background::Color(
-                                    iced::Color::from_rgb(0.9, 0.9, 0.9),
-                                )),
+                                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                                    0.9, 0.9, 0.9,
+                                ))),
                                 ..Default::default()
                             })
                             .into()

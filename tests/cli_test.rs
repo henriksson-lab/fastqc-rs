@@ -112,12 +112,40 @@ fn cli_svg_archives_svg_images() {
     );
 
     let html = std::fs::read_to_string(dir.join("svg_fastqc.html")).unwrap();
-    assert!(html.contains("data:image/svg+xml"));
+    assert!(html.contains("src=\"Images/"));
+    assert!(html.contains(".svg"));
+    assert!(!html.contains("data:image/svg+xml"));
 
     let names = zip_names(&dir.join("svg_fastqc.zip"));
     assert!(names
         .iter()
         .any(|name| name.starts_with("svg_fastqc/Images/") && name.ends_with(".svg")));
+}
+
+#[test]
+fn cli_embed_images_keeps_chart_data_uris() {
+    let dir = tempdir();
+    let input = dir.join("embed.fastq");
+    write_fastq(&input, 120);
+
+    let output = Command::new(bin())
+        .arg("--quiet")
+        .arg("--embed-images")
+        .arg("--svg")
+        .arg(&input)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let html = std::fs::read_to_string(dir.join("embed_fastqc.html")).unwrap();
+    assert!(html.contains("data:image/png;base64,"));
+    assert!(html.contains("data:image/svg+xml;base64,"));
+    assert!(!html.contains("src=\"Images/"));
 }
 
 #[test]
@@ -236,6 +264,81 @@ fn cli_stdin_writes_stdin_outputs() {
         "stdin_fastqc/fastqc_data.txt",
     );
     assert!(data.contains("Total Sequences\t1"));
+}
+
+#[test]
+fn cli_fastqc_short_aliases_work() {
+    let dir = tempdir();
+    let outdir = dir.join("out");
+    let tmpdir = dir.join("tmp");
+    let adapters = dir.join("adapters.txt");
+    let contaminants = dir.join("contaminants.txt");
+    let limits = dir.join("limits.txt");
+    let input = dir.join("aliases.fastq");
+
+    std::fs::create_dir(&outdir).unwrap();
+    std::fs::create_dir(&tmpdir).unwrap();
+    std::fs::write(&adapters, "# none\n").unwrap();
+    std::fs::write(&contaminants, "# none\n").unwrap();
+    std::fs::write(&limits, include_str!("../src/resources/limits.txt")).unwrap();
+    write_fastq(&input, 1);
+
+    let output = Command::new(bin())
+        .arg("-q")
+        .arg("-o")
+        .arg(&outdir)
+        .arg("-t")
+        .arg("1")
+        .arg("-c")
+        .arg(&contaminants)
+        .arg("-a")
+        .arg(&adapters)
+        .arg("-l")
+        .arg(&limits)
+        .arg("-k")
+        .arg("5")
+        .arg("-f")
+        .arg("fastq")
+        .arg("-d")
+        .arg(&tmpdir)
+        .arg("-j")
+        .arg("java")
+        .arg(&input)
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(outdir.join("aliases_fastqc.html").exists());
+    assert!(outdir.join("aliases_fastqc.zip").exists());
+}
+
+#[test]
+fn cli_accepts_kmer_range_boundaries() {
+    for kmer_size in ["2", "10"] {
+        let dir = tempdir();
+        let input = dir.join(format!("kmers_{}.fastq", kmer_size));
+        write_fastq(&input, 120);
+
+        let output = Command::new(bin())
+            .arg("--quiet")
+            .arg("--kmers")
+            .arg(kmer_size)
+            .arg(&input)
+            .output()
+            .unwrap();
+
+        assert!(
+            output.status.success(),
+            "kmer size {} stderr: {}",
+            kmer_size,
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(dir.join(format!("kmers_{}_fastqc.zip", kmer_size)).exists());
+    }
 }
 
 #[test]

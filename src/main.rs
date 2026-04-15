@@ -100,6 +100,10 @@ struct Cli {
     /// Generate SVG images instead of PNG
     #[arg(long = "svg")]
     svg: bool,
+
+    /// Embed icons and charts as base64 data URIs in HTML
+    #[arg(long = "embed-images")]
+    embed_images: bool,
 }
 
 fn main() {
@@ -194,6 +198,7 @@ fn main() {
         min_length: cli.min_length,
         dup_length: cli.dup_length,
         svg_output: cli.svg,
+        embed_images: cli.embed_images,
     };
 
     match run_fastqc(&cli.files, &config) {

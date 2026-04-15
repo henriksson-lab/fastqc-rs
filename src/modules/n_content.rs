@@ -45,7 +45,7 @@ impl NContent {
             let mut n_count: u64 = 0;
             let mut total: u64 = 0;
 
-            for bp in (group.lower_count - 1)..group.upper_count {
+            for bp in (group.lower_count - 1)..group.upper_count.min(self.n_counts.len()) {
                 n_count += self.n_counts[bp];
                 total += self.n_counts[bp];
                 total += self.not_n_counts[bp];

@@ -68,8 +68,8 @@ impl PerTileQuality {
 
     fn get_percentages(&mut self) {
         let (min_char, _max_char) = self.calculate_offsets();
-        let encoding = PhredEncoding::get_fastq_encoding_offset(min_char)
-            .unwrap_or(PhredEncoding {
+        let encoding =
+            PhredEncoding::get_fastq_encoding_offset(min_char).unwrap_or(PhredEncoding {
                 name: "Unknown".to_string(),
                 offset: 33,
             });
@@ -92,8 +92,7 @@ impl PerTileQuality {
 
                 let min_base = group.lower_count;
                 let max_base = group.upper_count;
-                self.means[t][i] =
-                    self.get_mean(tile_num, min_base, max_base, encoding.offset);
+                self.means[t][i] = self.get_mean(tile_num, min_base, max_base, encoding.offset);
             }
         }
 
@@ -132,7 +131,7 @@ impl PerTileQuality {
 
         let quality_counts = &self.per_tile_quality_counts[&tile];
 
-        for i in (min_bp - 1)..max_bp {
+        for i in (min_bp - 1)..max_bp.min(quality_counts.len()) {
             if quality_counts[i].get_total_count() > 0 {
                 count += 1;
                 total += quality_counts[i].get_mean(offset);

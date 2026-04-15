@@ -155,17 +155,11 @@ where
 
         // Legend background
         root.draw(&Rectangle::new(
-            [
-                (legend_x, legend_y),
-                (legend_x + 170, legend_y + legend_h),
-            ],
+            [(legend_x, legend_y), (legend_x + 170, legend_y + legend_h)],
             WHITE.filled(),
         ))?;
         root.draw(&Rectangle::new(
-            [
-                (legend_x, legend_y),
-                (legend_x + 170, legend_y + legend_h),
-            ],
+            [(legend_x, legend_y), (legend_x + 170, legend_y + legend_h)],
             RGBColor(200, 200, 200).stroke_width(1),
         ))?;
 
