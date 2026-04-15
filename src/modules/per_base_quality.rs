@@ -61,9 +61,14 @@ impl PerBaseQuality {
     }
 
     fn get_percentages(&mut self) {
+        if self.quality_counts.is_empty() {
+            self.calculated = true;
+            return;
+        }
+
         let (min_char, _max_char) = self.calculate_offsets();
-        let encoding = PhredEncoding::get_fastq_encoding_offset(min_char)
-            .unwrap_or(PhredEncoding {
+        let encoding =
+            PhredEncoding::get_fastq_encoding_offset(min_char).unwrap_or(PhredEncoding {
                 name: "Unknown".to_string(),
                 offset: 33,
             });
@@ -154,7 +159,8 @@ impl QCModule for PerBaseQuality {
         let qual = &sequence.quality;
 
         if self.quality_counts.len() < qual.len() {
-            self.quality_counts.resize_with(qual.len(), QualityCount::new);
+            self.quality_counts
+                .resize_with(qual.len(), QualityCount::new);
         }
 
         for (i, ch) in qual.chars().enumerate() {
@@ -235,8 +241,8 @@ impl QCModule for PerBaseQuality {
         }
 
         let (min_char, _) = self.calculate_offsets();
-        let encoding = PhredEncoding::get_fastq_encoding_offset(min_char)
-            .unwrap_or(PhredEncoding {
+        let encoding =
+            PhredEncoding::get_fastq_encoding_offset(min_char).unwrap_or(PhredEncoding {
                 name: "Unknown".to_string(),
                 offset: 33,
             });

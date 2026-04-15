@@ -1,9 +1,9 @@
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 
 use fastqc_rs::config::FastQCConfig;
 use fastqc_rs::sequence::Sequence;
-use fastqc_rs::FastQCRunner;
+use fastqc_rs::{run_fastqc, FastQCRunner};
 
 // ── Empty / minimal input ────────────────────────────────────────────
 
@@ -107,6 +107,27 @@ fn test_gzip_fastq() {
 }
 
 #[test]
+fn test_bzip2_fastq() {
+    let dir = tempdir();
+    let bz2_path = dir.join("test.fastq.bz2");
+    {
+        let file = std::fs::File::create(&bz2_path).unwrap();
+        let mut bz = bzip2::write::BzEncoder::new(file, bzip2::Compression::default());
+        bz.write_all(b"@read1\nACGT\n+\nIIII\n").unwrap();
+        bz.finish().unwrap();
+    }
+
+    let config = FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    };
+    let runner = FastQCRunner::new(config);
+    let report = runner.run_file(&bz2_path).unwrap();
+    assert!(report.data_report.contains("Total Sequences\t1"));
+    assert!(report.data_report.contains("Sequence length\t4"));
+}
+
+#[test]
 fn test_malformed_fastq_no_at() {
     let dir = tempdir();
     let path = dir.join("bad.fastq");
@@ -126,6 +147,55 @@ fn test_malformed_fastq_seq_qual_mismatch() {
     let dir = tempdir();
     let path = dir.join("mismatch.fastq");
     std::fs::write(&path, "@read1\nACGTACGT\n+\nIII\n").unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    };
+    let runner = FastQCRunner::new(config);
+    let result = runner.run_file(&path);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_malformed_fastq_second_record_errors() {
+    let dir = tempdir();
+    let path = dir.join("bad_second.fastq");
+    std::fs::write(&path, "@read1\nACGT\n+\nIIII\n@read2\nACGTACGT\n+\nIII\n").unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    };
+    let runner = FastQCRunner::new(config);
+    let result = runner.run_file(&path);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_malformed_fastq_second_record_missing_plus_errors() {
+    let dir = tempdir();
+    let path = dir.join("bad_second_plus.fastq");
+    std::fs::write(
+        &path,
+        "@read1\nACGT\n+\nIIII\n@read2\nACGT\nnot_plus\nIIII\n",
+    )
+    .unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    };
+    let runner = FastQCRunner::new(config);
+    let result = runner.run_file(&path);
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_truncated_fastq_second_record_errors() {
+    let dir = tempdir();
+    let path = dir.join("truncated_second.fastq");
+    std::fs::write(&path, "@read1\nACGT\n+\nIIII\n@read2\nACGT\n").unwrap();
 
     let config = FastQCConfig {
         quiet: true,
@@ -217,7 +287,9 @@ fn test_casava_filtering() {
     let runner = FastQCRunner::new(config);
     let report = runner.run_sequences(seqs.into_iter()).unwrap();
     // Both counted by BasicStats (ignoreFilteredSequences=false), but filtered one counted separately
-    assert!(report.data_report.contains("Sequences flagged as poor quality\t1"));
+    assert!(report
+        .data_report
+        .contains("Sequences flagged as poor quality\t1"));
     assert!(report.data_report.contains("Total Sequences\t1"));
 }
 
@@ -261,7 +333,9 @@ fn test_variable_length_sequences() {
     // Should show range
     assert!(report.data_report.contains("Sequence length\t4-12"));
     // Should warn about non-uniform length
-    assert!(report.data_report.contains("Sequence Length Distribution\twarn"));
+    assert!(report
+        .data_report
+        .contains("Sequence Length Distribution\twarn"));
 }
 
 #[test]
@@ -305,8 +379,16 @@ fn test_format_java_double_scientific() {
     use fastqc_rs::modules::per_sequence_quality::format_java_double;
     // Small values should use scientific notation like Java
     let result = format_java_double(0.0005);
-    assert!(result.contains("E"), "Expected scientific notation for 0.0005, got: {}", result);
-    assert!(result.contains("5"), "Expected '5' in result for 0.0005, got: {}", result);
+    assert!(
+        result.contains("E"),
+        "Expected scientific notation for 0.0005, got: {}",
+        result
+    );
+    assert!(
+        result.contains("5"),
+        "Expected '5' in result for 0.0005, got: {}",
+        result
+    );
 }
 
 // ── Contaminant matching tests ───────────────────────────────────────
@@ -346,8 +428,8 @@ fn test_contaminant_reverse_complement() {
 #[test]
 fn test_contaminant_finder_known_adapter() {
     use fastqc_rs::contaminant::ContaminantFinder;
-    let finder = ContaminantFinder::new(None); // Uses default contaminant list
     // Illumina Universal Adapter sequence
+    let finder = ContaminantFinder::new(None); // Uses default contaminant list
     let hit = finder.find_contaminant_hit("AGATCGGAAGAGCACACGTCTGAACTCCAGTCA");
     assert!(hit.is_some());
 }
@@ -375,10 +457,267 @@ fn test_html_report_structure() {
     assert!(report.html_report.contains("</html>"));
 }
 
+#[test]
+fn test_html_report_escapes_file_and_table_text() {
+    let dir = tempdir();
+    let input_path = dir.join("weird<&\"'.fastq");
+    write_repeated_fastq(&input_path, 1);
+
+    let report = FastQCRunner::new(FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    })
+    .run_file(&input_path)
+    .unwrap();
+
+    assert!(report
+        .html_report
+        .contains("weird&lt;&amp;&quot;&#39;.fastq"));
+    assert!(!report.html_report.contains("weird<&\"'.fastq"));
+}
+
+#[test]
+fn test_fastqc_archive_layout() {
+    let dir = tempdir();
+    let input_path = dir.join("archive.fastq");
+    write_repeated_fastq(&input_path, 120);
+
+    let config = FastQCConfig {
+        quiet: true,
+        output_dir: Some(dir.clone()),
+        ..Default::default()
+    };
+
+    run_fastqc(&[input_path.to_string_lossy().to_string()], &config).unwrap();
+
+    assert!(dir.join("archive_fastqc.html").exists());
+    assert!(dir.join("archive_fastqc.zip").exists());
+    assert!(!dir.join("archive_fastqc_data.txt").exists());
+
+    let names = zip_names(&dir.join("archive_fastqc.zip"));
+
+    for expected in [
+        "archive_fastqc/",
+        "archive_fastqc/Icons/",
+        "archive_fastqc/Images/",
+        "archive_fastqc/Icons/fastqc_icon.png",
+        "archive_fastqc/Icons/warning.png",
+        "archive_fastqc/Icons/error.png",
+        "archive_fastqc/Icons/tick.png",
+        "archive_fastqc/summary.txt",
+        "archive_fastqc/fastqc_data.txt",
+        "archive_fastqc/fastqc_report.html",
+    ] {
+        assert!(
+            names.iter().any(|name| name == expected),
+            "missing {}",
+            expected
+        );
+    }
+
+    assert!(
+        names
+            .iter()
+            .any(|name| name.starts_with("archive_fastqc/Images/")),
+        "archive should include rendered chart images"
+    );
+}
+
+#[test]
+fn test_casava_grouping_combines_files() {
+    let dir = tempdir();
+    let first = dir.join("sample_001.fastq");
+    let second = dir.join("sample_002.fastq");
+    std::fs::write(
+        &first,
+        "@read1:N:0:ACGT\nACGTACGT\n+\nIIIIIIII\n@read2:Y:0:ACGT\nACGTACGT\n+\nIIIIIIII\n",
+    )
+    .unwrap();
+    std::fs::write(
+        &second,
+        "@read3:N:0:ACGT\nACGTACGT\n+\nIIIIIIII\n@read4:N:0:ACGT\nACGTACGT\n+\nIIIIIIII\n",
+    )
+    .unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        output_dir: Some(dir.clone()),
+        casava: true,
+        ..Default::default()
+    };
+
+    run_fastqc(
+        &[
+            first.to_string_lossy().to_string(),
+            second.to_string_lossy().to_string(),
+        ],
+        &config,
+    )
+    .unwrap();
+
+    assert!(dir.join("sample_fastqc.html").exists());
+    assert!(dir.join("sample_fastqc.zip").exists());
+    assert!(!dir.join("sample_001_fastqc.zip").exists());
+    assert!(!dir.join("sample_002_fastqc.zip").exists());
+
+    let data = zip_entry_string(
+        &dir.join("sample_fastqc.zip"),
+        "sample_fastqc/fastqc_data.txt",
+    );
+    assert!(data.contains("Filename\tsample.fastq"));
+    assert!(data.contains("Total Sequences\t3"));
+    assert!(data.contains("Sequences flagged as poor quality\t1"));
+}
+
+#[test]
+fn test_svg_output_embeds_and_archives_svg_images() {
+    let dir = tempdir();
+    let input_path = dir.join("svg.fastq");
+    write_repeated_fastq(&input_path, 120);
+
+    let png_report = FastQCRunner::new(FastQCConfig {
+        quiet: true,
+        ..Default::default()
+    })
+    .run_file(&input_path)
+    .unwrap();
+    let svg_report = FastQCRunner::new(FastQCConfig {
+        quiet: true,
+        svg_output: true,
+        ..Default::default()
+    })
+    .run_file(&input_path)
+    .unwrap();
+
+    assert_eq!(png_report.data_report, svg_report.data_report);
+    assert!(svg_report.html_report.contains("data:image/svg+xml"));
+
+    let config = FastQCConfig {
+        quiet: true,
+        output_dir: Some(dir.clone()),
+        svg_output: true,
+        ..Default::default()
+    };
+    run_fastqc(&[input_path.to_string_lossy().to_string()], &config).unwrap();
+
+    let names = zip_names(&dir.join("svg_fastqc.zip"));
+    assert!(
+        names
+            .iter()
+            .any(|name| name.starts_with("svg_fastqc/Images/") && name.ends_with(".svg")),
+        "archive should include SVG chart images"
+    );
+    assert!(
+        !names
+            .iter()
+            .any(|name| name.starts_with("svg_fastqc/Images/") && name.ends_with(".png")),
+        "SVG mode should not archive PNG chart images"
+    );
+}
+
+#[test]
+fn test_extract_and_delete_outputs() {
+    let dir = tempdir();
+    let input_path = dir.join("extract.fastq");
+    write_repeated_fastq(&input_path, 120);
+
+    let config = FastQCConfig {
+        quiet: true,
+        output_dir: Some(dir.clone()),
+        do_unzip: true,
+        ..Default::default()
+    };
+    run_fastqc(&[input_path.to_string_lossy().to_string()], &config).unwrap();
+
+    let extract_dir = dir.join("extract_fastqc");
+    assert!(dir.join("extract_fastqc.zip").exists());
+    assert!(extract_dir.join("fastqc_data.txt").exists());
+    assert!(extract_dir.join("fastqc_report.html").exists());
+    assert!(extract_dir.join("summary.txt").exists());
+    assert!(extract_dir.join("Icons").join("tick.png").exists());
+    assert!(
+        std::fs::read_dir(extract_dir.join("Images"))
+            .unwrap()
+            .next()
+            .is_some(),
+        "extracted Images directory should contain chart images"
+    );
+
+    let delete_dir = tempdir();
+    let delete_input = delete_dir.join("delete.fastq");
+    write_repeated_fastq(&delete_input, 120);
+    let delete_config = FastQCConfig {
+        quiet: true,
+        output_dir: Some(delete_dir.clone()),
+        do_unzip: true,
+        delete_after_unzip: true,
+        ..Default::default()
+    };
+    run_fastqc(
+        &[delete_input.to_string_lossy().to_string()],
+        &delete_config,
+    )
+    .unwrap();
+
+    assert!(!delete_dir.join("delete_fastqc.zip").exists());
+    assert!(delete_dir
+        .join("delete_fastqc")
+        .join("fastqc_data.txt")
+        .exists());
+}
+
+#[test]
+fn test_fast5_input_reports_unsupported() {
+    let dir = tempdir();
+    let input_path = dir.join("run_sample_001.fast5");
+    std::fs::write(&input_path, b"not a real hdf5 file").unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        nano: true,
+        ..Default::default()
+    };
+
+    let err = match FastQCRunner::new(config).run_file(&input_path) {
+        Ok(_) => panic!("Fast5 should fail with an explicit unsupported error"),
+        Err(err) => err,
+    };
+    assert!(err
+        .to_string()
+        .contains("Fast5/Nanopore input is not implemented yet"));
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────
 
+fn write_repeated_fastq(path: &std::path::Path, count: usize) {
+    let mut fastq = String::new();
+    for i in 0..count {
+        fastq.push_str(&format!("@read{}\nACGTACGTACGT\n+\nIIIIIIIIIIII\n", i));
+    }
+    std::fs::write(path, fastq).unwrap();
+}
+
+fn zip_names(path: &std::path::Path) -> Vec<String> {
+    let zip_file = std::fs::File::open(path).unwrap();
+    let zip = zip::ZipArchive::new(zip_file).unwrap();
+    zip.file_names().map(|name| name.to_string()).collect()
+}
+
+fn zip_entry_string(path: &std::path::Path, entry_name: &str) -> String {
+    let zip_file = std::fs::File::open(path).unwrap();
+    let mut zip = zip::ZipArchive::new(zip_file).unwrap();
+    let mut entry = zip.by_name(entry_name).unwrap();
+    let mut contents = String::new();
+    entry.read_to_string(&mut contents).unwrap();
+    contents
+}
+
 fn tempdir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("fastqc_rs_test_{}", std::process::id()));
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let dir = std::env::temp_dir().join(format!("fastqc_rs_test_{}_{}", std::process::id(), nanos));
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }

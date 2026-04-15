@@ -95,18 +95,32 @@ pub fn render_chart_to_png(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::err
     encode_rgb_to_png(&buf, w, h)
 }
 
+/// Render a chart to SVG bytes.
+pub fn render_chart_to_svg(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+    use plotters::prelude::*;
+
+    let (w, h) = data.dimensions();
+    let mut svg = String::new();
+    {
+        let backend = SVGBackend::with_string(&mut svg, (w, h));
+        let root = backend.into_drawing_area();
+        match data {
+            ChartData::LineGraph { .. } => line_graph::render(&root, data)?,
+            ChartData::QualityBoxPlot { .. } => quality_box_plot::render(&root, data)?,
+            ChartData::TileHeatmap { .. } => tile_graph::render(&root, data)?,
+        }
+        root.present()?;
+    }
+
+    Ok(svg.into_bytes())
+}
+
 fn encode_rgb_to_png(rgb: &[u8], w: u32, h: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     use image::{ImageBuffer, Rgb};
     let img: ImageBuffer<Rgb<u8>, _> =
         ImageBuffer::from_raw(w, h, rgb.to_vec()).ok_or("Failed to create image buffer")?;
     let mut png_bytes = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
-    image::ImageEncoder::write_image(
-        encoder,
-        img.as_raw(),
-        w,
-        h,
-        image::ExtendedColorType::Rgb8,
-    )?;
+    image::ImageEncoder::write_image(encoder, img.as_raw(), w, h, image::ExtendedColorType::Rgb8)?;
     Ok(png_bytes)
 }

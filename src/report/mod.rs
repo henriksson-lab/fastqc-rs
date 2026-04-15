@@ -9,12 +9,24 @@ const ERROR_PNG: &[u8] = include_bytes!("../resources/icons/error.png");
 // Embed CSS template at compile time
 const HEADER_CSS: &str = include_str!("../resources/header_template.html");
 
+fn escape_html(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
 /// Generate the fastqc_data.txt content from all modules.
 /// Mirrors Java HTMLReportArchive text data generation.
-pub fn generate_data_report(
-    modules: &mut [Box<dyn QCModule>],
-    version: &str,
-) -> String {
+pub fn generate_data_report(modules: &mut [Box<dyn QCModule>], version: &str) -> String {
     let mut buf = String::new();
 
     // Header
@@ -40,6 +52,32 @@ pub fn generate_data_report(
 
         // Module footer
         buf.push_str(">>END_MODULE\n");
+    }
+
+    buf
+}
+
+/// Generate FastQC-compatible summary.txt content.
+pub fn generate_summary_report(modules: &mut [Box<dyn QCModule>], file_name: &str) -> String {
+    let mut buf = String::new();
+
+    for module in modules.iter_mut() {
+        if module.ignore_in_report() {
+            continue;
+        }
+
+        let status = match module.status() {
+            QCStatus::Pass => "PASS",
+            QCStatus::Warn => "WARN",
+            QCStatus::Fail => "FAIL",
+        };
+
+        buf.push_str(status);
+        buf.push('\t');
+        buf.push_str(module.name());
+        buf.push('\t');
+        buf.push_str(file_name);
+        buf.push('\n');
     }
 
     buf
@@ -98,7 +136,7 @@ fn module_data_to_html_table(data_text: &str) -> String {
             buf.push_str("      <tr>\n");
             for col in &cols {
                 buf.push_str("       <th>");
-                buf.push_str(col.trim());
+                buf.push_str(&escape_html(col.trim()));
                 buf.push_str("</th>\n");
             }
             buf.push_str("      </tr>\n");
@@ -117,7 +155,7 @@ fn module_data_to_html_table(data_text: &str) -> String {
             buf.push_str("      <tr>\n");
             for col in &cols {
                 buf.push_str("       <td>");
-                buf.push_str(col);
+                buf.push_str(&escape_html(col));
                 buf.push_str("</td>\n");
             }
             buf.push_str("      </tr>\n");
@@ -141,6 +179,7 @@ pub fn generate_html_report(
     modules: &mut [Box<dyn QCModule>],
     file_name: &str,
     version: &str,
+    svg_output: bool,
 ) -> String {
     let mut buf = String::new();
     let fastqc_icon_b64 = to_base64(FASTQC_ICON_PNG);
@@ -159,7 +198,7 @@ pub fn generate_html_report(
     // HTML head
     buf.push_str("<!DOCTYPE html>\n<html>\n <head>\n");
     buf.push_str("  <title>");
-    buf.push_str(file_name);
+    buf.push_str(&escape_html(file_name));
     buf.push_str(" FastQC Report</title>\n");
     buf.push_str("  <style type=\"text/css\">\n");
     buf.push_str(HEADER_CSS);
@@ -178,7 +217,7 @@ pub fn generate_html_report(
     buf.push_str("   </div>\n");
     buf.push_str("   <div id=\"header_filename\">\n");
     buf.push_str("    ");
-    buf.push_str(file_name);
+    buf.push_str(&escape_html(file_name));
     buf.push('\n');
     buf.push_str("   </div>\n");
     buf.push_str("  </div>\n");
@@ -197,7 +236,7 @@ pub fn generate_html_report(
         buf.push_str("\"><a href=\"#M");
         buf.push_str(&mod_idx.to_string());
         buf.push_str("\">");
-        buf.push_str(name);
+        buf.push_str(&escape_html(name));
         buf.push_str("</a></li>\n");
     }
     buf.push_str("   </ul>\n");
@@ -225,18 +264,27 @@ pub fn generate_html_report(
         buf.push_str("\" alt=\"");
         buf.push_str(alt);
         buf.push_str("\">");
-        buf.push_str(&name);
+        buf.push_str(&escape_html(&name));
         buf.push_str("</h2>\n");
 
         // Render chart image if available
         if let Some(chart_data) = module.chart_data() {
-            match crate::charts::render_chart_to_png(&chart_data) {
-                Ok(png_bytes) => {
-                    let b64 = to_base64(&png_bytes);
-                    buf.push_str("    <p><img class=\"indented\" src=\"data:image/png;base64,");
+            let rendered = if svg_output {
+                crate::charts::render_chart_to_svg(&chart_data)
+                    .map(|bytes| ("image/svg+xml", bytes))
+            } else {
+                crate::charts::render_chart_to_png(&chart_data).map(|bytes| ("image/png", bytes))
+            };
+
+            match rendered {
+                Ok((mime_type, image_bytes)) => {
+                    let b64 = to_base64(&image_bytes);
+                    buf.push_str("    <p><img class=\"indented\" src=\"data:");
+                    buf.push_str(mime_type);
+                    buf.push_str(";base64,");
                     buf.push_str(&b64);
                     buf.push_str("\" alt=\"");
-                    buf.push_str(&name);
+                    buf.push_str(&escape_html(&name));
                     buf.push_str("\"></p>\n");
                 }
                 Err(e) => {

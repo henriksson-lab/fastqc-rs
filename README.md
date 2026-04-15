@@ -2,7 +2,7 @@
 
 A Rust port of [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) — a quality control tool for high-throughput sequencing data.
 
-`fastqc-rs` produces output identical to the original Java FastQC, verified against golden test files. It supports FASTQ (plain, gzip, bzip2) and BAM/SAM input formats.
+`fastqc-rs` targets output compatibility with the original Java FastQC, verified against golden test files for core FASTQ reports. It supports FASTQ (plain, gzip, bzip2) and BAM/SAM input formats. Legacy Nanopore Fast5/HDF5 sequence extraction is not implemented yet.
 
 ## Installation
 
@@ -77,10 +77,9 @@ fastqc-rs --help
 
 ### Output Files
 
-For each input file (e.g., `sample.fastq`), three output files are generated:
-- `sample_fastqc_data.txt` — tab-separated text report
-- `sample_fastqc_report.html` — self-contained HTML report with embedded CSS and icons
-- `sample_fastqc.zip` — ZIP archive containing both reports
+For each input file (e.g., `sample.fastq`), FastQC-style output files are generated:
+- `sample_fastqc.html` — top-level HTML report
+- `sample_fastqc.zip` — ZIP archive containing `sample_fastqc/fastqc_data.txt`, `sample_fastqc/fastqc_report.html`, `sample_fastqc/summary.txt`, `Icons/`, and `Images/`
 
 ### CLI Options
 
@@ -100,6 +99,11 @@ For each input file (e.g., `sample.fastq`), three output files are generated:
 | `--nano` | Nanopore mode |
 | `--nofilter` | Don't filter CASAVA reads |
 | `--extract` | Unzip output archive |
+| `--noextract` | Do not unzip output archive |
+| `--delete` | Delete zip after extraction |
+| `--memory` | Accepted for FastQC CLI compatibility; validated but otherwise ignored |
+| `--dir`, `-d` | Accepted for FastQC CLI compatibility; validates temp directory |
+| `--java`, `-j` | Accepted for FastQC CLI compatibility; ignored |
 | `--min_length` | Minimum sequence length |
 | `--dup_length` | Truncation length for duplication detection (default: 50) |
 | `--svg` | Generate SVG images instead of PNG |
@@ -266,6 +270,7 @@ Output is validated against Java FastQC's approved golden test files:
 | BAM | `.bam`, `.ubam` | Supported |
 | SAM | `.sam` | Supported |
 | Colorspace | SOLiD format | Supported |
+| Nanopore Fast5 | `.fast5` | Not implemented; `--nano` scans/groups filenames but Fast5/HDF5 sequence extraction is unsupported |
 
 ## License
 

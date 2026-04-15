@@ -24,16 +24,13 @@ pub struct FastQFile {
     casava_mode: bool,
     nofilter: bool,
     next_sequence: Option<Sequence>,
+    pending_error: Option<FastQError>,
     finished: bool,
 }
 
 impl FastQFile {
     /// Open a FASTQ file, auto-detecting compression from extension.
-    pub fn open(
-        path: &Path,
-        casava: bool,
-        nofilter: bool,
-    ) -> Result<Self, FastQError> {
+    pub fn open(path: &Path, casava: bool, nofilter: bool) -> Result<Self, FastQError> {
         let name = path
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -57,6 +54,7 @@ impl FastQFile {
             casava_mode: casava,
             nofilter,
             next_sequence: None,
+            pending_error: None,
             finished: false,
         };
 
@@ -76,6 +74,7 @@ impl FastQFile {
             casava_mode: casava,
             nofilter,
             next_sequence: None,
+            pending_error: None,
             finished: false,
         };
         fq.read_next()?;
@@ -134,13 +133,17 @@ impl FastQFile {
         // Read sequence line
         let seq = self.read_line()?.ok_or_else(|| FastQError::Format {
             line: self.line_number,
-            message: "Ran out of data in the middle of a fastq entry. Your file is probably truncated".to_string(),
+            message:
+                "Ran out of data in the middle of a fastq entry. Your file is probably truncated"
+                    .to_string(),
         })?;
 
         // Read mid line (separator starting with +)
         let mid_line = self.read_line()?.ok_or_else(|| FastQError::Format {
             line: self.line_number,
-            message: "Ran out of data in the middle of a fastq entry. Your file is probably truncated".to_string(),
+            message:
+                "Ran out of data in the middle of a fastq entry. Your file is probably truncated"
+                    .to_string(),
         })?;
 
         if !mid_line.starts_with('+') {
@@ -153,7 +156,9 @@ impl FastQFile {
         // Read quality line
         let quality = self.read_line()?.ok_or_else(|| FastQError::Format {
             line: self.line_number,
-            message: "Ran out of data in the middle of a fastq entry. Your file is probably truncated".to_string(),
+            message:
+                "Ran out of data in the middle of a fastq entry. Your file is probably truncated"
+                    .to_string(),
         })?;
 
         // Validate sequence and quality lengths match
@@ -177,13 +182,7 @@ impl FastQFile {
         let sequence = if self.is_colorspace {
             let upper_seq = seq.to_uppercase();
             let converted = convert_colorspace_to_bases(&upper_seq);
-            Sequence::new_with_colorspace(
-                self.file_name.clone(),
-                converted,
-                upper_seq,
-                quality,
-                id,
-            )
+            Sequence::new_with_colorspace(self.file_name.clone(), converted, upper_seq, quality, id)
         } else {
             Sequence::new(self.file_name.clone(), seq, quality, id)
         };
@@ -207,10 +206,16 @@ impl Iterator for FastQFile {
         if self.finished {
             return None;
         }
-        let seq = self.next_sequence.take()?;
-        if self.read_next().is_err() {
+
+        if let Some(err) = self.pending_error.take() {
             self.finished = true;
             self.next_sequence = None;
+            return Some(Err(err));
+        }
+
+        let seq = self.next_sequence.take()?;
+        if let Err(err) = self.read_next() {
+            self.pending_error = Some(err);
         }
         Some(Ok(seq))
     }
@@ -227,7 +232,9 @@ fn check_colorspace(seq: &str) -> bool {
     if !matches!(first, b'G' | b'A' | b'T' | b'C' | b'N') {
         return false;
     }
-    bytes[1..].iter().all(|&b| matches!(b, b'.' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6'))
+    bytes[1..]
+        .iter()
+        .all(|&b| matches!(b, b'.' | b'0' | b'1' | b'2' | b'3' | b'4' | b'5' | b'6'))
 }
 
 /// Convert colorspace data to base calls.

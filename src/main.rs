@@ -69,9 +69,25 @@ struct Cli {
     #[arg(long = "extract")]
     extract: bool,
 
+    /// Do not unzip the output file after creating it
+    #[arg(long = "noextract", conflicts_with = "extract")]
+    noextract: bool,
+
     /// Delete the zip file after extracting
     #[arg(long = "delete")]
     delete: bool,
+
+    /// Base memory per file in megabytes. Accepted for FastQC CLI compatibility.
+    #[arg(long = "memory")]
+    memory: Option<usize>,
+
+    /// Temporary directory. Accepted for FastQC CLI compatibility.
+    #[arg(short = 'd', long = "dir")]
+    temp_dir: Option<PathBuf>,
+
+    /// Java executable. Accepted for FastQC CLI compatibility and ignored.
+    #[arg(short = 'j', long = "java")]
+    java: Option<PathBuf>,
 
     /// Minimum length of sequence to process
     #[arg(long = "min_length", default_value = "0")]
@@ -89,6 +105,21 @@ struct Cli {
 fn main() {
     let cli = Cli::parse();
 
+    if cli.threads == 0 {
+        eprintln!("Error: number of threads must be a positive integer");
+        process::exit(1);
+    }
+
+    if !(2..=10).contains(&cli.kmers) {
+        eprintln!("Error: kmer size must be in the range 2-10");
+        process::exit(1);
+    }
+
+    if cli.nogroup && cli.expgroup {
+        eprintln!("Error: you can't specify both --expgroup and --nogroup in the same run");
+        process::exit(1);
+    }
+
     if let Some(ref fmt) = cli.format {
         let valid = ["fastq", "bam", "sam", "bam_mapped", "sam_mapped"];
         if !valid.contains(&fmt.as_str()) {
@@ -96,6 +127,49 @@ fn main() {
                 "Error: unrecognized format '{}'. Valid formats: {}",
                 fmt,
                 valid.join(", ")
+            );
+            process::exit(1);
+        }
+    }
+
+    if let Some(ref output_dir) = cli.output_dir {
+        if !output_dir.is_dir() {
+            eprintln!(
+                "Error: specified output directory '{}' does not exist",
+                output_dir.display()
+            );
+            process::exit(1);
+        }
+    }
+
+    for (label, path) in [
+        ("contaminant file", cli.contaminants.as_ref()),
+        ("adapter file", cli.adapters.as_ref()),
+        ("limits file", cli.limits.as_ref()),
+    ] {
+        if let Some(path) = path {
+            if !path.is_file() {
+                eprintln!("Error: {} '{}' does not exist", label, path.display());
+                process::exit(1);
+            }
+        }
+    }
+
+    if let Some(ref temp_dir) = cli.temp_dir {
+        if !temp_dir.is_dir() {
+            eprintln!(
+                "Error: temp directory '{}' does not exist",
+                temp_dir.display()
+            );
+            process::exit(1);
+        }
+    }
+
+    if let Some(memory) = cli.memory {
+        if !(100..=10000).contains(&memory) {
+            eprintln!(
+                "Error: memory value {} MB was outside the allowed range (100 - 10000)",
+                memory
             );
             process::exit(1);
         }
