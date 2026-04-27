@@ -326,7 +326,7 @@ mod tests {
 
     #[test]
     fn test_read_minimal_fastq() {
-        let path = PathBuf::from("fastqc/test/data/minimal.fastq");
+        let path = PathBuf::from("tests/fixtures/fastqc/data/minimal.fastq");
         if !path.exists() {
             return; // Skip if not in right directory
         }
@@ -340,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_read_complex_fastq() {
-        let path = PathBuf::from("fastqc/test/data/complex.fastq");
+        let path = PathBuf::from("tests/fixtures/fastqc/data/complex.fastq");
         if !path.exists() {
             return;
         }

@@ -17,8 +17,6 @@ include = [
     "/build.rs",
     "/src/**",
     "/tests/**",
-    "/fastqc/test/data/*.fastq",
-    "/fastqc/test/integration/*_fastqc_data.approved.txt",
     "/package/**",
 ]
 

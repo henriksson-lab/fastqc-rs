@@ -1,0 +1,25 @@
+/target/
+/package/dist/
+
+# External Java FastQC checkout used for optional parity tests
+/fastqc/
+
+# Local agent/tooling state
+/.codex
+/.claude/
+/CLAUDE.md
+
+# Local notes
+/FIXED_BUGS.md
+/TODO.md
+
+# Local benchmark/profiling artifacts
+/perf.data
+/perf.data.*
+
+# Local sample data and generated FastQC reports
+/Undetermined_S0_L001_R1_001.fastq.gz
+/Undetermined_S0_L001_R1_001_fastqc.html
+/Undetermined_S0_L001_R1_001_fastqc.zip
+/*_fastqc.html
+/*_fastqc.zip

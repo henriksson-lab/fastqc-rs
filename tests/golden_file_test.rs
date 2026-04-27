@@ -5,9 +5,9 @@ use fastqc_rs::run_fastqc_on_file;
 
 fn compare_with_golden(test_name: &str) {
     let base = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let fastq_path = base.join(format!("fastqc/test/data/{}.fastq", test_name));
+    let fastq_path = base.join(format!("tests/fixtures/fastqc/data/{}.fastq", test_name));
     let golden_path = base.join(format!(
-        "fastqc/test/integration/FileContentsTest_{}_fastqc_data.approved.txt",
+        "tests/fixtures/fastqc/integration/FileContentsTest_{}_fastqc_data.approved.txt",
         test_name
     ));
 

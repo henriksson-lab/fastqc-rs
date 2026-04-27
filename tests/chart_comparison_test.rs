@@ -48,7 +48,7 @@ fn load_png_file(path: &std::path::Path) -> image::RgbImage {
 
 /// Run analysis on complex.fastq and return all modules with chart data.
 fn run_analysis() -> Vec<(String, Option<ChartData>)> {
-    let fastq = base_dir().join("fastqc/test/data/complex.fastq");
+    let fastq = base_dir().join("tests/fixtures/fastqc/data/complex.fastq");
     let config = FastQCConfig {
         quiet: true,
         ..Default::default()
