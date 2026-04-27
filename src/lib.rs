@@ -32,6 +32,7 @@ use modules::per_tile_quality::PerTileQuality;
 use modules::sequence_length_distribution::SequenceLengthDistribution;
 use modules::QCModule;
 use sequence::bam_file;
+use sequence::fast5_file::Fast5FileReader;
 use sequence::fastq_file::FastQFile;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -324,7 +325,15 @@ fn run_fastqc_on_paths(
 
         count += match format.as_str() {
             "fast5" => {
-                return Err("Fast5/Nanopore input is not implemented yet".into());
+                let fast5 = Fast5FileReader::open(path)?;
+                let sequences = fast5.map(move |r| {
+                    r.map(|mut seq| {
+                        seq.file_name = sequence_report_name.clone();
+                        seq
+                    })
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+                });
+                analysis::run_analysis(sequences, &mut modules, config.quiet, config.min_length)?
             }
             "bam" | "bam_mapped" => {
                 let bam = bam_file::BamFileReader::open(path, only_mapped)?;
@@ -506,7 +515,7 @@ pub fn run_fastqc(
     config: &FastQCConfig,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if !config.quiet {
-        eprintln!("FastQC-rs v{}", VERSION);
+        eprintln!("fastqc-compliant-rs v{}", VERSION);
     }
 
     // Handle stdin specially when it is the only input, matching FastQC.

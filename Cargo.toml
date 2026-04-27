@@ -1,12 +1,33 @@
 [package]
-name = "fastqc-rs"
-version = "0.2.0"
+name = "fastqc-compliant-rs"
+version = "0.4.0"
 edition = "2021"
 description = "A Rust port of FastQC - quality control for high-throughput sequencing data"
 license = "GPL-3.0"
+repository = "https://github.com/henriksson-lab/fastqc-compliant-rs"
+homepage = "https://github.com/henriksson-lab/fastqc-compliant-rs"
+documentation = "https://docs.rs/fastqc-compliant-rs"
+readme = "README.md"
+keywords = ["fastqc", "bioinformatics", "sequencing", "quality-control"]
+categories = ["command-line-utilities", "science"]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/build.rs",
+    "/src/**",
+    "/tests/**",
+    "/fastqc/test/data/*.fastq",
+    "/fastqc/test/integration/*_fastqc_data.approved.txt",
+    "/package/**",
+]
+
+[lib]
+name = "fastqc_rs"
+path = "src/lib.rs"
 
 [[bin]]
-name = "fastqc-rs"
+name = "fastqc-compliant-rs"
 path = "src/main.rs"
 
 [dependencies]
@@ -22,8 +43,9 @@ noodles = { version = "0.88", features = ["bam", "sam", "bgzf", "core"] }
 memchr = "2"
 plotters = "0.3"
 plotters-bitmap = "0.3"
-image = "0.25"
+image = { version = "0.25", default-features = false, features = ["png"] }
 iced = { version = "0.13", optional = true, features = ["image"] }
+hdf5-pure-rust = "0.3"
 
 [features]
 default = []
@@ -31,7 +53,7 @@ gui = ["iced"]
 
 [package.metadata.bundle]
 name = "FastQC"
-identifier = "uk.ac.babraham.fastqc-rs"
+identifier = "uk.ac.babraham.fastqc-compliant-rs"
 icon = ["package/fastqc-rs.ico"]
 short_description = "Quality control for high-throughput sequencing data"
 
@@ -39,7 +61,7 @@ short_description = "Quality control for high-throughput sequencing data"
 winresource = "0.1"
 
 [[bin]]
-name = "fastqc-rs-gui"
+name = "fastqc-compliant-rs-gui"
 path = "src/gui_main.rs"
 required-features = ["gui"]
 

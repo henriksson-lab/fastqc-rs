@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 fn bin() -> &'static str {
-    env!("CARGO_BIN_EXE_fastqc-rs")
+    env!("CARGO_BIN_EXE_fastqc-compliant-rs")
 }
 
 fn tempdir() -> PathBuf {

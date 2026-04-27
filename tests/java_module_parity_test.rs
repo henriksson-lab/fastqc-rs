@@ -258,15 +258,18 @@ fn vendored_java_module_outputs_match_controlled_fixtures() {
             let Some(java_section) = java_sections.get(*module) else {
                 assert!(
                     !rust_sections.contains_key(*module),
-                    "fastqc-rs reported {} for {}, but vendored FastQC omitted it",
+                    "fastqc-compliant-rs reported {} for {}, but vendored FastQC omitted it",
                     module,
                     fixture_name
                 );
                 continue;
             };
-            let rust_section = rust_sections
-                .get(*module)
-                .unwrap_or_else(|| panic!("fastqc-rs missing {} for {}", module, fixture_name));
+            let rust_section = rust_sections.get(*module).unwrap_or_else(|| {
+                panic!(
+                    "fastqc-compliant-rs missing {} for {}",
+                    module, fixture_name
+                )
+            });
             assert_eq!(
                 canonical_section(module, java_section),
                 canonical_section(module, rust_section),

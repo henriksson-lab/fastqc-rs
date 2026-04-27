@@ -7,9 +7,9 @@ use fastqc_rs::run_fastqc;
 
 /// FastQC - A quality control tool for high throughput sequence data
 #[derive(Parser, Debug)]
-#[command(name = "fastqc-rs", version, about)]
+#[command(name = "fastqc-compliant-rs", version, about)]
 struct Cli {
-    /// Input files (FASTQ, BAM, SAM). Use "stdin" to read from standard input.
+    /// Input files (FASTQ, BAM, SAM, Fast5). Use "stdin" to read from standard input.
     #[arg(required = true)]
     files: Vec<String>,
 

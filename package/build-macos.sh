@@ -22,29 +22,29 @@ CONTENTS="$APP_DIR/Contents"
 MACOS_DIR="$CONTENTS/MacOS"
 RESOURCES="$CONTENTS/Resources"
 
-echo "=== Building fastqc-rs for macOS ($TARGET) ==="
+echo "=== Building fastqc-compliant-rs for macOS ($TARGET) ==="
 
 # Build CLI
 RUSTFLAGS="-C target-cpu=native" \
-    cargo build --release --target "$TARGET" --bin fastqc-rs 2>/dev/null || \
-    cargo build --release --bin fastqc-rs
+    cargo build --release --target "$TARGET" --bin fastqc-compliant-rs 2>/dev/null || \
+    cargo build --release --bin fastqc-compliant-rs
 
 # Build GUI
 RUSTFLAGS="-C target-cpu=native" \
-    cargo build --release --target "$TARGET" --features gui --bin fastqc-rs-gui 2>/dev/null || \
-    cargo build --release --features gui --bin fastqc-rs-gui
+    cargo build --release --target "$TARGET" --features gui --bin fastqc-compliant-rs-gui 2>/dev/null || \
+    cargo build --release --features gui --bin fastqc-compliant-rs-gui
 
 echo "=== Creating .app bundle ==="
 rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES"
 
 # Copy binaries
-if [ -f "target/$TARGET/release/fastqc-rs-gui" ]; then
-    cp "target/$TARGET/release/fastqc-rs-gui" "$MACOS_DIR/FastQC"
-    cp "target/$TARGET/release/fastqc-rs" "$MACOS_DIR/fastqc-rs"
+if [ -f "target/$TARGET/release/fastqc-compliant-rs-gui" ]; then
+    cp "target/$TARGET/release/fastqc-compliant-rs-gui" "$MACOS_DIR/FastQC"
+    cp "target/$TARGET/release/fastqc-compliant-rs" "$MACOS_DIR/fastqc-compliant-rs"
 else
-    cp "target/release/fastqc-rs-gui" "$MACOS_DIR/FastQC"
-    cp "target/release/fastqc-rs" "$MACOS_DIR/fastqc-rs"
+    cp "target/release/fastqc-compliant-rs-gui" "$MACOS_DIR/FastQC"
+    cp "target/release/fastqc-compliant-rs" "$MACOS_DIR/fastqc-compliant-rs"
 fi
 
 # Create Info.plist
@@ -58,11 +58,11 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
     <key>CFBundleDisplayName</key>
     <string>FastQC</string>
     <key>CFBundleIdentifier</key>
-    <string>uk.ac.babraham.fastqc-rs</string>
+    <string>uk.ac.babraham.fastqc-compliant-rs</string>
     <key>CFBundleVersion</key>
-    <string>0.2.0</string>
+    <string>0.4.0</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2.0</string>
+    <string>0.4.0</string>
     <key>CFBundleExecutable</key>
     <string>FastQC</string>
     <key>CFBundleIconFile</key>

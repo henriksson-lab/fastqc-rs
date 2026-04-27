@@ -1,9 +1,8 @@
-# fastqc-rs
+# fastqc-compliant-rs
 
 A Rust port of [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/) — a quality control tool for high-throughput sequencing data.
 
-`fastqc-rs` targets output compatibility with the original Java FastQC, verified against golden test files for core FASTQ reports. It supports FASTQ (plain, gzip, bzip2) and BAM/SAM input formats. Legacy Nanopore Fast5/HDF5 sequence extraction is out of scope
-but can be added upon request.
+`fastqc-compliant-rs` targets output compatibility with the original Java FastQC, verified against golden test files for core FASTQ reports. It supports FASTQ (plain, gzip, bzip2), BAM/SAM, and legacy Nanopore Fast5/HDF5 input formats. The project scope is now full original FastQC coverage: remaining Java FastQC behaviors such as `fastqc.fo` archive generation are tracked as compatibility work rather than intentionally excluded.
 
 ## This is an LLM-mediated faithful (hopefully) translation, not the original code! 
 
@@ -33,17 +32,17 @@ This blurb might be out of date. Go to [this page](https://github.com/henriksson
 ### Pre-built binaries
 
 Download from the [Releases](../../releases) page:
-- **Windows**: `fastqc-rs-windows.zip` — portable, no installer needed. Extract and run `fastqc-rs.exe` (CLI) or `fastqc-rs-gui.exe` (GUI).
-- **macOS**: `fastqc-rs-macos.zip` — extract `FastQC.app` and drag to Applications.
-- **Linux**: `fastqc-rs-linux.tar.gz` — extract and run.
+- **Windows**: `fastqc-compliant-rs-windows.zip` — portable, no installer needed. Extract and run `fastqc-compliant-rs.exe` (CLI) or `fastqc-compliant-rs-gui.exe` (GUI).
+- **macOS**: `fastqc-compliant-rs-macos.zip` — extract `FastQC.app` and drag to Applications.
+- **Linux**: `fastqc-compliant-rs-linux.tar.gz` — extract and run.
 
 (these might not be generated yet; but you can produce them yourself from source)
 
 ### From source
 
 ```sh
-git clone <repo-url>
-cd fastqc-rs
+git clone https://github.com/henriksson-lab/fastqc-compliant-rs.git
+cd fastqc-compliant-rs
 cargo build --release                               # CLI only
 cargo build --release --features gui                 # CLI + GUI
 ```
@@ -60,7 +59,7 @@ The GUI is an optional feature. Build with:
 
 ```sh
 cargo build --release --features gui
-# Run: target/release/fastqc-rs-gui input.fastq
+# Run: target/release/fastqc-compliant-rs-gui input.fastq
 ```
 
 ### Packaging for distribution
@@ -83,17 +82,19 @@ cargo clippy --all-targets --all-features
 cargo test
 ```
 
-Also run the Java FastQC golden comparisons for representative FASTQ fixtures, and do a manual smoke run on representative FASTQ, BAM, and SAM inputs. Fast5/HDF5 support is out of scope, so do not claim Fast5 compatibility in release notes.
+Also run the Java FastQC golden comparisons for representative FASTQ fixtures, and do a manual smoke run on representative FASTQ, BAM, SAM, and Fast5 inputs where fixtures are available. Do not claim complete FastQC replacement status in release notes until the parity matrix below has no unsupported items.
+
+Fast5/HDF5 support uses the crates.io `hdf5-pure-rust` dependency, not native `libhdf5`.
 
 ## Performance
 
-Local single-threaded timing on a 123,888,712 byte gzipped FASTQ (`Undetermined_S0_L001_R1_001.fastq.gz`) showed `fastqc-rs` completing the same HTML+ZIP, no-extract workflow about 1.30x faster than Java FastQC v0.11.9.
+Local single-threaded timing on a 123,888,712 byte gzipped FASTQ (`Undetermined_S0_L001_R1_001.fastq.gz`) showed `fastqc-compliant-rs` completing the same HTML+ZIP, no-extract workflow about 1.30x faster than Java FastQC v0.11.9.
 
 Benchmark environment: Linux 6.8, Intel Xeon Gold 6138, release build from this repository, 1 warmup run followed by 3 measured runs per tool.
 
 | Tool | Command shape | Mean time | Range |
 |------|---------------|-----------|-------|
-| `fastqc-rs 0.2.0` | `target/release/fastqc-rs --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 9.64s | 9.59-9.69s |
+| `fastqc-compliant-rs 0.4.0` | `target/release/fastqc-compliant-rs --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 9.64s | 9.59-9.69s |
 | `FastQC v0.11.9` | `fastqc --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 12.55s | 12.21-13.20s |
 
 These numbers are machine- and input-dependent; use them as a snapshot, not a general guarantee.
@@ -102,28 +103,28 @@ These numbers are machine- and input-dependent; use them as a snapshot, not a ge
 
 ```sh
 # Basic usage
-fastqc-rs input.fastq
+fastqc-compliant-rs input.fastq
 
 # Multiple files
-fastqc-rs sample1.fastq sample2.fastq.gz sample3.bam
+fastqc-compliant-rs sample1.fastq sample2.fastq.gz sample3.bam
 
 # Specify output directory
-fastqc-rs --outdir results/ input.fastq
+fastqc-compliant-rs --outdir results/ input.fastq
 
 # Suppress progress output
-fastqc-rs --quiet input.fastq
+fastqc-compliant-rs --quiet input.fastq
 
 # Use multiple threads for parallel file processing
-fastqc-rs --threads 4 *.fastq.gz
+fastqc-compliant-rs --threads 4 *.fastq.gz
 
 # Force input format
-fastqc-rs --format bam input.bam
+fastqc-compliant-rs --format bam input.bam
 
 # Custom adapter/contaminant lists
-fastqc-rs --adapters my_adapters.txt --contaminants my_contaminants.txt input.fastq
+fastqc-compliant-rs --adapters my_adapters.txt --contaminants my_contaminants.txt input.fastq
 
 # All options
-fastqc-rs --help
+fastqc-compliant-rs --help
 ```
 
 ### Output Files
@@ -166,7 +167,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-fastqc-rs = "0.1"
+fastqc-compliant-rs = "0.4"
 ```
 
 ### Run QC on a file
@@ -333,14 +334,14 @@ All 12 standard FastQC modules are implemented:
 | Implementation | Wall time | Memory |
 |----------------|-----------|--------|
 | Java FastQC (JDK 19) | 13.2s | 512 MB |
-| **fastqc-rs** (native CPU) | **11.4s** | **57 MB** |
+| **fastqc-compliant-rs** (native CPU) | **11.4s** | **57 MB** |
 
 ### Small dataset (100k reads x 150bp, 31 MB FASTQ)
 
 | Implementation | Wall time | Speedup |
 |----------------|-----------|---------|
 | Java FastQC (JDK 19) | 3.23s | 1.0x |
-| **fastqc-rs** (native CPU) | **0.94s** | **3.4x** |
+| **fastqc-compliant-rs** (native CPU) | **0.94s** | **3.4x** |
 
 ### Multi-file (4 x 100k reads, parallel)
 
@@ -371,11 +372,11 @@ Output is validated against Java FastQC's approved golden test files:
 | BAM | `.bam`, `.ubam` | Supported |
 | SAM | `.sam` | Supported |
 | Colorspace | SOLiD format | Supported |
-| Nanopore Fast5 | `.fast5` | Out of scope; `--nano` scans/groups filenames but Fast5/HDF5 sequence extraction is unsupported |
+| Nanopore Fast5 | `.fast5` | Supported for legacy single-read and multi-read layouts with embedded FastQ datasets |
 
 ## FastQC Parity
 
-`fastqc-rs` targets FastQC CLI/report parity for non-GUI workflows. The GUI is intentionally different, and chart rendering may differ visually, but the text report and archive layout are kept close to Java FastQC.
+`fastqc-compliant-rs` targets FastQC CLI/report parity for non-GUI workflows. The GUI is intentionally different, and chart rendering may differ visually, but the text report and archive layout are kept close to Java FastQC.
 
 | Area | Implemented | Tested | Notes |
 |------|-------------|--------|-------|
@@ -384,12 +385,12 @@ Output is validated against Java FastQC's approved golden test files:
 | BAM | Yes | Partial | Needs tiny BAM parity fixtures |
 | SAM | Yes | Yes | Autodetect, forced format, mapped-only soft clipping, reverse-complement handling |
 | CASAVA grouping | Yes | Yes | Invalid names become singleton groups |
-| Nanopore grouping | Partial | Yes | Directory scan and grouping only; Fast5/HDF5 extraction is out of scope |
+| Nanopore grouping | Yes | Yes | Directory scan/grouping plus legacy Fast5/HDF5 extraction |
 | CLI flags | Mostly | Yes | `--memory`, `--dir`, and `--java` are compatibility-only |
 | `fastqc_data.txt` | Yes | Golden FASTQ | More Java golden fixtures planned |
 | `summary.txt` | Yes | Yes | Stored in zip and extracted folder |
 | HTML report | Yes | Structure tests | References archived `Icons/` and `Images/` by default; `--embed-images` keeps standalone data URIs |
-| Zip archive | Mostly | Yes | `fastqc.fo` generation is out of scope |
+| Zip archive | Mostly | Yes | `fastqc.fo` generation is planned |
 | SVG output | Yes | Yes | HTML references SVG chart images by default and archive stores `.svg` chart images |
 
 ## Migrating From FastQC
@@ -400,17 +401,17 @@ Most CLI usage maps directly:
 # Java FastQC
 fastqc --outdir results --threads 4 sample.fastq.gz
 
-# fastqc-rs
-fastqc-rs --outdir results --threads 4 sample.fastq.gz
+# fastqc-compliant-rs
+fastqc-compliant-rs --outdir results --threads 4 sample.fastq.gz
 ```
 
 Known differences:
 
-- `fastqc-rs` writes `sample_fastqc.html` and `sample_fastqc.zip`, matching FastQC's top-level report naming. The text report lives inside the zip as `sample_fastqc/fastqc_data.txt`.
+- `fastqc-compliant-rs` writes `sample_fastqc.html` and `sample_fastqc.zip`, matching FastQC's top-level report naming. The text report lives inside the zip as `sample_fastqc/fastqc_data.txt`.
 - `--memory`, `--dir`, and `--java` are accepted for CLI compatibility. They are validated where applicable, but Rust does not use Java heap or temp image files.
 - HTML reports reference `Icons/` and `Images/` assets by default. Use `--embed-images` to keep the previous standalone base64 data URI behavior.
-- `--nano` currently handles filename scanning/grouping only. Legacy `.fast5` HDF5 extraction is out of scope.
-- `fastqc.fo` generation is out of scope.
+- `--nano` handles filename scanning/grouping and legacy `.fast5` HDF5 extraction for the same embedded FastQ dataset paths used by Java FastQC.
+- `fastqc.fo` generation is planned but not implemented yet.
 - Chart pixels may differ from Java FastQC, but chart data and `fastqc_data.txt` are the compatibility target.
 
 ## License

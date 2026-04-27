@@ -1,4 +1,5 @@
 pub mod bam_file;
+pub mod fast5_file;
 pub mod fastq_file;
 
 /// A single sequence read with its quality scores and metadata.

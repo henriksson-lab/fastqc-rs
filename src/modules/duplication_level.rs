@@ -57,7 +57,7 @@ impl DuplicationLevel {
                 ">500".into(),
                 ">1k".into(),
                 ">5k".into(),
-                ">10k+".into(),
+                ">10k".into(),
             ];
             return;
         }

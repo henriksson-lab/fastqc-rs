@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::{Read, Write};
 use std::num::NonZero;
 use std::path::PathBuf;
@@ -1819,10 +1820,17 @@ fn test_extract_and_delete_outputs() {
 }
 
 #[test]
-fn test_fast5_input_reports_unsupported() {
+fn test_fast5_single_read_input() {
     let dir = tempdir();
     let input_path = dir.join("run_sample_001.fast5");
-    std::fs::write(&input_path, b"not a real hdf5 file").unwrap();
+    write_fast5_fixture(
+        &input_path,
+        &[(
+            "",
+            "Analyses/Basecall_1D_000/BaseCalled_template/Fastq",
+            "@read1\nacgtacgt\n+\nIIIIIIII\n",
+        )],
+    );
 
     let config = FastQCConfig {
         quiet: true,
@@ -1830,13 +1838,97 @@ fn test_fast5_input_reports_unsupported() {
         ..Default::default()
     };
 
-    let err = match FastQCRunner::new(config).run_file(&input_path) {
-        Ok(_) => panic!("Fast5 should fail with an explicit unsupported error"),
-        Err(err) => err,
+    let report = FastQCRunner::new(config).run_file(&input_path).unwrap();
+    let basic_stats = module_section(&report.data_report, "Basic Statistics");
+
+    assert!(basic_stats.contains("Total Sequences\t1"));
+    assert!(basic_stats.contains("Sequence length\t8"));
+    assert!(report.data_report.contains("%GC\t50"));
+}
+
+#[test]
+fn test_fast5_multi_read_input() {
+    let dir = tempdir();
+    let input_path = dir.join("run_sample_001.fast5");
+    write_fast5_fixture(
+        &input_path,
+        &[
+            (
+                "read_abc",
+                "Analyses/Basecall_1D_000/BaseCalled_template/Fastq",
+                "@read_abc\nACGT\n+\nIIII\n",
+            ),
+            (
+                "read_def",
+                "Analyses/Basecall_1D_000/BaseCalled_template/Fastq",
+                "@read_def\nGGGG\n+\nIIII\n",
+            ),
+        ],
+    );
+
+    let config = FastQCConfig {
+        quiet: true,
+        nano: true,
+        ..Default::default()
     };
-    assert!(err
-        .to_string()
-        .contains("Fast5/Nanopore input is not implemented yet"));
+
+    let report = FastQCRunner::new(config).run_file(&input_path).unwrap();
+    let basic_stats = module_section(&report.data_report, "Basic Statistics");
+
+    assert!(basic_stats.contains("Total Sequences\t2"));
+}
+
+#[test]
+fn test_fast5_fastq_path_priority_matches_java() {
+    let dir = tempdir();
+    let input_path = dir.join("priority.fast5");
+    write_fast5_fixture(
+        &input_path,
+        &[
+            (
+                "",
+                "Analyses/Basecall_1D_000/BaseCalled_template/Fastq",
+                "@read_1d\nAAAA\n+\nIIII\n",
+            ),
+            (
+                "",
+                "Analyses/Basecall_2D_000/BaseCalled_template/Fastq",
+                "@read_2d\nGGGG\n+\nIIII\n",
+            ),
+        ],
+    );
+
+    let config = FastQCConfig {
+        quiet: true,
+        nano: true,
+        ..Default::default()
+    };
+
+    let report = FastQCRunner::new(config).run_file(&input_path).unwrap();
+    let basic_stats = module_section(&report.data_report, "Basic Statistics");
+
+    assert!(basic_stats.contains("%GC\t100"));
+}
+
+#[test]
+fn test_fast5_input_reports_missing_fastq_path() {
+    let dir = tempdir();
+    let input_path = dir.join("missing.fast5");
+    hdf5_pure_rust::WritableFile::create(&input_path)
+        .unwrap()
+        .close()
+        .unwrap();
+
+    let config = FastQCConfig {
+        quiet: true,
+        nano: true,
+        ..Default::default()
+    };
+
+    let err = FastQCRunner::new(config)
+        .run_file(&input_path)
+        .expect_err("Fast5 with no embedded FastQ should fail");
+    assert!(err.to_string().contains("No valid fastq paths found"));
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -1904,6 +1996,74 @@ fn write_bam_fixture(path: &std::path::Path) {
     }
 
     noodles::sam::alignment::io::Write::finish(&mut writer, &header).unwrap();
+}
+
+fn write_fast5_fixture(path: &std::path::Path, entries: &[(&str, &str, &str)]) {
+    let mut root = Hdf5FixtureNode::default();
+    for (read_prefix, dataset_path, fastq) in entries {
+        let full_path = if read_prefix.is_empty() {
+            (*dataset_path).to_string()
+        } else {
+            format!("{}/{}", read_prefix, dataset_path)
+        };
+        root.insert(&full_path, fastq);
+    }
+
+    let mut file = hdf5_pure_rust::WritableFile::create(path).unwrap();
+    write_hdf5_file_node(&mut file, &root);
+    file.close().unwrap();
+}
+
+#[derive(Default)]
+struct Hdf5FixtureNode {
+    groups: BTreeMap<String, Hdf5FixtureNode>,
+    datasets: BTreeMap<String, String>,
+}
+
+impl Hdf5FixtureNode {
+    fn insert(&mut self, dataset_path: &str, value: &str) {
+        let mut parts: Vec<&str> = dataset_path.split('/').collect();
+        let dataset_name = parts.pop().expect("Fast5 fixture dataset path is empty");
+
+        let mut node = self;
+        for part in parts {
+            node = node.groups.entry(part.to_string()).or_default();
+        }
+        node.datasets
+            .insert(dataset_name.to_string(), value.to_string());
+    }
+}
+
+fn write_hdf5_file_node(file: &mut hdf5_pure_rust::WritableFile, node: &Hdf5FixtureNode) {
+    for (name, value) in &node.datasets {
+        file.new_dataset_builder(name)
+            .shape(&[1])
+            .write_vlen_utf8_strings(&[value.as_str()])
+            .unwrap();
+    }
+
+    for (name, child) in &node.groups {
+        let mut group = file.create_group(name).unwrap();
+        write_hdf5_group_node(&mut group, child);
+    }
+}
+
+fn write_hdf5_group_node(
+    group: &mut hdf5_pure_rust::hl::writable_file::WritableGroup<'_>,
+    node: &Hdf5FixtureNode,
+) {
+    for (name, value) in &node.datasets {
+        group
+            .new_dataset_builder(name)
+            .shape(&[1])
+            .write_vlen_utf8_strings(&[value.as_str()])
+            .unwrap();
+    }
+
+    for (name, child) in &node.groups {
+        let mut child_group = group.create_group(name).unwrap();
+        write_hdf5_group_node(&mut child_group, child);
+    }
 }
 
 fn bam_record(
