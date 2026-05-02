@@ -2,6 +2,7 @@
 
 pub mod analysis;
 pub mod charts;
+pub mod cli;
 pub mod config;
 pub mod contaminant;
 pub mod encoding;

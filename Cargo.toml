@@ -1,6 +1,6 @@
 [package]
 name = "fastqc-compliant-rs"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 description = "A Rust translation of FastQC - quality control for high-throughput sequencing data"
 license = "GPL-3.0"
@@ -43,7 +43,7 @@ plotters = "0.3"
 plotters-bitmap = "0.3"
 image = { version = "0.25", default-features = false, features = ["png"] }
 iced = { version = "0.13", optional = true, features = ["image"] }
-hdf5-pure-rust = "0.3"
+hdf5-pure-rust = "0.3.1"
 
 [features]
 default = []
