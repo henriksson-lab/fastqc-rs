@@ -1,6 +1,6 @@
 [package]
 name = "fastqc-compliant-rs"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "A Rust translation of FastQC - quality control for high-throughput sequencing data"
 license = "GPL-3.0"
@@ -39,8 +39,9 @@ thiserror = "2"
 base64 = "0.22"
 noodles = { version = "0.88", features = ["bam", "sam", "bgzf", "core"] }
 memchr = "2"
-plotters = "0.3"
+plotters = { version = "0.3", default-features = false, features = ["bitmap_backend", "svg_backend", "all_series", "all_elements", "full_palette", "colormaps", "deprecated_items", "ab_glyph"] }
 plotters-bitmap = "0.3"
+fontdb = "0.16"
 image = { version = "0.25", default-features = false, features = ["png"] }
 iced = { version = "0.13", optional = true, features = ["image"] }
 hdf5-pure-rust = "0.3.1"

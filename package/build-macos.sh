@@ -60,9 +60,9 @@ cat > "$CONTENTS/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key>
     <string>uk.ac.babraham.fastqc-compliant-rs</string>
     <key>CFBundleVersion</key>
-    <string>0.4.0</string>
+    <string>0.4.2</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.4.0</string>
+    <string>0.4.2</string>
     <key>CFBundleExecutable</key>
     <string>FastQC</string>
     <key>CFBundleIconFile</key>

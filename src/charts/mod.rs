@@ -4,6 +4,8 @@ pub mod line_graph;
 pub mod quality_box_plot;
 pub mod tile_graph;
 
+use std::sync::OnceLock;
+
 /// A named data series for line graphs.
 #[derive(Debug, Clone)]
 pub struct Series {
@@ -78,6 +80,8 @@ impl ChartData {
 pub fn render_chart_to_png(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     use plotters::prelude::*;
 
+    ensure_plotters_font_registered()?;
+
     let (w, h) = data.dimensions();
     // RGB buffer
     let mut buf = vec![0u8; (w * h * 3) as usize];
@@ -98,6 +102,8 @@ pub fn render_chart_to_png(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::err
 /// Render a chart to SVG bytes.
 pub fn render_chart_to_svg(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     use plotters::prelude::*;
+
+    ensure_plotters_font_registered()?;
 
     let (w, h) = data.dimensions();
     let mut svg = String::new();
@@ -123,4 +129,36 @@ fn encode_rgb_to_png(rgb: &[u8], w: u32, h: u32) -> Result<Vec<u8>, Box<dyn std:
     let encoder = image::codecs::png::PngEncoder::new(&mut png_bytes);
     image::ImageEncoder::write_image(encoder, img.as_raw(), w, h, image::ExtendedColorType::Rgb8)?;
     Ok(png_bytes)
+}
+
+fn ensure_plotters_font_registered() -> Result<(), Box<dyn std::error::Error>> {
+    static FONT_REGISTRATION: OnceLock<Result<(), String>> = OnceLock::new();
+
+    FONT_REGISTRATION
+        .get_or_init(register_plotters_sans_serif_font)
+        .clone()
+        .map_err(Into::into)
+}
+
+fn register_plotters_sans_serif_font() -> Result<(), String> {
+    use plotters::style::{register_font, FontStyle};
+
+    let mut database = fontdb::Database::new();
+    database.load_system_fonts();
+
+    let query = fontdb::Query {
+        families: &[fontdb::Family::SansSerif],
+        ..fontdb::Query::default()
+    };
+    let font_id = database
+        .query(&query)
+        .ok_or_else(|| "no system sans-serif font found for chart rendering".to_string())?;
+
+    let font_data = database
+        .with_face_data(font_id, |data, _| data.to_vec())
+        .ok_or_else(|| "failed to load system sans-serif font data".to_string())?;
+    let font_data = Box::leak(font_data.into_boxed_slice());
+
+    register_font("sans-serif", FontStyle::Normal, font_data)
+        .map_err(|_| "failed to register system sans-serif font with Plotters".to_string())
 }
