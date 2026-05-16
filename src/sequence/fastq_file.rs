@@ -81,10 +81,12 @@ impl FastQFile {
         Ok(fq)
     }
 
+    /// The file name (or "stdin") this reader was opened from.
     pub fn name(&self) -> &str {
         &self.file_name
     }
 
+    /// Whether the first record was detected as SOLiD colorspace data.
     pub fn is_colorspace(&self) -> bool {
         self.is_colorspace
     }

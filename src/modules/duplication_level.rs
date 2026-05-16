@@ -8,6 +8,8 @@ use crate::modules::per_sequence_quality::format_java_double;
 use crate::modules::QCModule;
 use crate::sequence::Sequence;
 
+/// Estimates the fraction of reads that would remain after deduplication, using the
+/// sequence-count map populated by `OverRepresentedSeqs`.
 pub struct DuplicationLevel {
     shared: Arc<RwLock<SharedDuplicationData>>,
     total_percentages: Option<Vec<f64>>,
@@ -17,6 +19,7 @@ pub struct DuplicationLevel {
 }
 
 impl DuplicationLevel {
+    /// Build the module wired to the shared duplication data produced by OverRepresentedSeqs.
     pub fn new(config: ModuleConfig, shared: Arc<RwLock<SharedDuplicationData>>) -> Self {
         Self {
             shared,
@@ -27,6 +30,8 @@ impl DuplicationLevel {
         }
     }
 
+    /// Bin observed duplication counts into 16 reporting slots and apply the rare-sequence
+    /// correction for libraries that hit the unique-sequence cutoff. Idempotent.
     pub fn calculate_levels(&mut self) {
         if self.total_percentages.is_some() {
             return;
@@ -144,6 +149,9 @@ impl DuplicationLevel {
     }
 }
 
+/// Adjust an observed duplication count for the fact that only the first
+/// `count_at_limit` unique sequences are tracked; estimates what the count would be
+/// if every read had been observed. Mirrors Java DuplicationLevel.getCorrectedCount.
 fn get_corrected_count(
     count_at_limit: u64,
     total_count: u64,

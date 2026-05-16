@@ -9,6 +9,7 @@ use crate::utils::base_group::BaseGroup;
 
 use statrs::distribution::{Binomial, DiscreteCDF};
 
+/// A single kmer observed in the input, with per-position occurrence counts.
 struct Kmer {
     sequence: String,
     count: u64,
@@ -18,6 +19,7 @@ struct Kmer {
 }
 
 impl Kmer {
+    /// Construct a kmer seen once at the given position in a read of `seq_length` kmer slots.
     fn new(sequence: &str, position: usize, seq_length: usize) -> Self {
         let mut positions = vec![0u64; seq_length];
         positions[position] += 1;
@@ -30,6 +32,7 @@ impl Kmer {
         }
     }
 
+    /// Record another occurrence at `position`, growing the per-position array if needed.
     fn increment_count(&mut self, position: usize) {
         self.count += 1;
 
@@ -40,6 +43,8 @@ impl Kmer {
     }
 }
 
+/// Detects kmers that are positionally enriched relative to a binomial expectation.
+/// Samples every 50th read to keep memory bounded.
 pub struct KmerContent {
     kmers: HashMap<String, Kmer>,
     longest_sequence: usize,
@@ -65,6 +70,7 @@ struct EnrichedKmer {
 }
 
 impl KmerContent {
+    /// Initialise with an empty kmer table sized for the configured kmer length.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         let kmer_size = fqc_config.kmer_size;
         Self {
@@ -82,6 +88,15 @@ impl KmerContent {
         }
     }
 
+    /// Keeps a count of the number of Kmers of a given size seen at each position
+    /// within the run. Used later to calculate the enrichment of the Kmers we count.
+    ///
+    /// The Kmer sequence is taken in even though it isn't used in the total counts:
+    /// we don't want to count Kmers with Ns in them, but we still need to ensure the
+    /// data structure is expanded to the right size. Otherwise, in libraries where
+    /// later positions are all Ns, the structure would end up too short and crash.
+    ///
+    /// `position` is 0-indexed within the read; `kmer_length` is the actual Kmer size.
     fn add_kmer_count(&mut self, position: usize, kmer_length: usize, kmer: &str) {
         if position >= self.total_kmer_counts.len() {
             let old_len = self.total_kmer_counts.len();
@@ -102,6 +117,8 @@ impl KmerContent {
         self.total_kmer_counts[position][kmer_length - 1] += 1;
     }
 
+    /// Compute observed/expected ratios and binomial p-values per position group,
+    /// keep the top 20 most enriched kmers and discard the rest.
     fn calculate_enrichment(&mut self) {
         let group_length = if self.longest_sequence >= self.min_kmer_size {
             (self.longest_sequence - self.min_kmer_size) + 1
@@ -414,7 +431,7 @@ impl QCModule for KmerContent {
     }
 }
 
-/// Format f32 like Java Float.toString()
+/// Format an f32 to match Java's Float.toString output.
 fn format_java_float(v: f32) -> String {
     // Java Float.toString() format
     format!("{}", v)

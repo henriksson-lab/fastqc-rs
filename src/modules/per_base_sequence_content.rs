@@ -6,6 +6,7 @@ use crate::modules::QCModule;
 use crate::sequence::Sequence;
 use crate::utils::base_group::BaseGroup;
 
+/// Tracks the proportion of each base (G/A/T/C) at every position across all reads.
 pub struct PerBaseSequenceContent {
     g_counts: Vec<u64>,
     a_counts: Vec<u64>,
@@ -20,6 +21,7 @@ pub struct PerBaseSequenceContent {
 }
 
 impl PerBaseSequenceContent {
+    /// Construct an empty per-base content accumulator.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         Self {
             g_counts: Vec::new(),
@@ -34,6 +36,7 @@ impl PerBaseSequenceContent {
         }
     }
 
+    /// Roll the raw per-position base counts into BaseGroup bins and convert to percentages.
     fn get_percentages(&mut self) {
         if self.g_counts.is_empty() {
             self.percentages = Some([vec![], vec![], vec![], vec![]]);

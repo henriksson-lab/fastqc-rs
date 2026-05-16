@@ -8,6 +8,8 @@ use crate::sequence::Sequence;
 use crate::utils::base_group::BaseGroup;
 use crate::utils::quality_count::QualityCount;
 
+/// Accumulates quality distributions per read position, then summarises them as
+/// mean/median/quartile/percentile box-plot data.
 pub struct PerBaseQuality {
     quality_counts: Vec<QualityCount>,
     means: Vec<f64>,
@@ -23,6 +25,7 @@ pub struct PerBaseQuality {
 }
 
 impl PerBaseQuality {
+    /// Construct an empty per-base quality accumulator.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         Self {
             quality_counts: Vec::new(),
@@ -39,6 +42,7 @@ impl PerBaseQuality {
         }
     }
 
+    /// Find the min and max quality characters seen, used to detect Phred encoding.
     fn calculate_offsets(&self) -> (char, char) {
         let mut min_char: char = '\0';
         let mut max_char: char = '\0';
@@ -60,6 +64,7 @@ impl PerBaseQuality {
         (min_char, max_char)
     }
 
+    /// Group positions into BaseGroup bins and compute summary statistics per bin.
     fn get_percentages(&mut self) {
         if self.quality_counts.is_empty() {
             self.calculated = true;
@@ -99,6 +104,8 @@ impl PerBaseQuality {
         self.calculated = true;
     }
 
+    /// Average the requested percentile across positions in [min_bp, max_bp], skipping
+    /// positions with fewer than 100 observations (Java parity).
     fn get_percentile(&self, min_bp: usize, max_bp: usize, offset: i32, percentile: i32) -> f64 {
         let mut count = 0;
         let mut total = 0.0;
@@ -118,6 +125,7 @@ impl PerBaseQuality {
         }
     }
 
+    /// Average the per-position mean quality across positions in [min_bp, max_bp].
     fn get_mean(&self, min_bp: usize, max_bp: usize, offset: i32) -> f64 {
         let mut count = 0;
         let mut total = 0.0;

@@ -3,6 +3,7 @@ use crate::modules::module_config::ModuleConfig;
 use crate::modules::QCModule;
 use crate::sequence::Sequence;
 
+/// Collects file-level summary statistics: counts, length range, %GC, and Phred encoding.
 pub struct BasicStats {
     name: Option<String>,
     actual_count: u64,
@@ -20,6 +21,7 @@ pub struct BasicStats {
 }
 
 impl BasicStats {
+    /// Construct an empty stats accumulator.
     pub fn new(_config: &ModuleConfig) -> Self {
         Self {
             name: None,
@@ -38,10 +40,12 @@ impl BasicStats {
         }
     }
 
+    /// Record the input filename, stripping any "stdin:" prefix.
     pub fn set_file_name(&mut self, name: &str) {
         self.name = Some(name.replacen("stdin:", "", 1));
     }
 
+    /// Lowest quality character seen, used downstream for Phred encoding detection.
     pub fn lowest_char(&self) -> char {
         self.lowest_char as char
     }

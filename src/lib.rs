@@ -128,6 +128,8 @@ pub struct ChartImage {
     pub bytes: Vec<u8>,
 }
 
+/// One logical input for analysis: one or more files reported as a single report.
+/// CASAVA / Nanopore mode groups several files into one `AnalysisInput`.
 #[derive(Debug, Clone)]
 struct AnalysisInput {
     paths: Vec<PathBuf>,
@@ -135,6 +137,7 @@ struct AnalysisInput {
     output_stem: String,
 }
 
+/// Strip trailing fastq/sam/bam (and compression) extensions to produce a report stem.
 fn strip_fastqc_suffixes(name: &str) -> String {
     let mut stem = name.to_string();
     for suffix in [
@@ -154,6 +157,10 @@ fn file_name_string(path: &Path) -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+/// Finds the core name from a CASAVA 1.8 fastq file. Strips off the part which
+/// indicates that this file is one of a set and returns the base name with that
+/// part removed. Returns `None` if the filename doesn't conform to standard
+/// CASAVA naming.
 fn casava_basename(name: &str) -> Option<String> {
     if name.ends_with(".fastq.gz") && name.len() >= 13 {
         let marker = name.len() - 13;
@@ -182,6 +189,9 @@ fn casava_basename(name: &str) -> Option<String> {
     None
 }
 
+/// Finds the core name from an ONT fast5 file. Strips off the part which indicates
+/// that this file is one of a set and returns the base name with that part removed.
+/// Returns `None` if the filename doesn't conform to standard ONT naming.
 fn nanopore_basename(name: &str) -> Option<String> {
     let without_ext = name.strip_suffix(".fast5").unwrap_or(name);
     let parts: Vec<&str> = without_ext.split('_').collect();
@@ -192,6 +202,12 @@ fn nanopore_basename(name: &str) -> Option<String> {
     }
 }
 
+/// Resolves the list of input files into `AnalysisInput` groups.
+///
+/// In CASAVA or Nanopore mode, multiple files are grouped together so each group
+/// produces a single combined output. Files within a group are opened lazily as
+/// they're needed, rather than all at once, to avoid hitting per-process file
+/// handle limits on large runs.
 fn collect_analysis_inputs(
     files: &[String],
     config: &FastQCConfig,
@@ -299,6 +315,8 @@ pub fn run_fastqc_on_file(
     run_fastqc_on_paths(&[path.to_path_buf()], &file_name, config)
 }
 
+/// Core analysis routine: open every path, feed sequences through all modules,
+/// then materialise data/HTML/summary reports and chart images.
 fn run_fastqc_on_paths(
     paths: &[PathBuf],
     report_name: &str,
@@ -415,6 +433,7 @@ fn run_fastqc_on_paths(
     })
 }
 
+/// Render each module's chart to PNG (or SVG when `svg_output`) for archive `Images/` entries.
 fn collect_chart_images(modules: &mut [Box<dyn QCModule>], svg_output: bool) -> Vec<ChartImage> {
     modules
         .iter_mut()
@@ -627,6 +646,7 @@ pub struct FastQCRunner {
 }
 
 impl FastQCRunner {
+    /// Create a runner with the given configuration.
     pub fn new(config: FastQCConfig) -> Self {
         Self { config }
     }

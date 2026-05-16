@@ -106,6 +106,8 @@ struct Cli {
     embed_images: bool,
 }
 
+/// Parse CLI args, validate them, build a `FastQCConfig`, and dispatch to `run_fastqc`.
+/// Returns a process exit code (0 on success, 1 on validation or analysis error).
 pub fn run_cli_from<I, T>(args: I) -> i32
 where
     I: IntoIterator<Item = T>,

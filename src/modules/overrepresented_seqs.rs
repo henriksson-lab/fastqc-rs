@@ -22,6 +22,7 @@ impl Default for SharedDuplicationData {
 }
 
 impl SharedDuplicationData {
+    /// Construct empty shared data.
     pub fn new() -> Self {
         Self {
             sequences: HashMap::new(),
@@ -32,6 +33,7 @@ impl SharedDuplicationData {
     }
 }
 
+/// A single overrepresented sequence with its frequency and best contaminant match.
 struct OverrepresentedSeq {
     seq: String,
     count: u64,
@@ -39,6 +41,8 @@ struct OverrepresentedSeq {
     contaminant_hit: String,
 }
 
+/// Records unique-sequence counts (up to OBSERVATION_CUTOFF distinct sequences) and
+/// produces a list of sequences appearing in more than a configurable fraction of reads.
 pub struct OverRepresentedSeqs {
     shared: Arc<RwLock<SharedDuplicationData>>,
     overrepresented_seqs: Vec<OverrepresentedSeq>,
@@ -52,6 +56,7 @@ pub struct OverRepresentedSeqs {
 const OBSERVATION_CUTOFF: usize = 100000;
 
 impl OverRepresentedSeqs {
+    /// Construct the module wired to its shared sequence-count table and a contaminant DB.
     pub fn new(
         config: ModuleConfig,
         fqc_config: FastQCConfig,
@@ -70,6 +75,8 @@ impl OverRepresentedSeqs {
         }
     }
 
+    /// Filter the shared sequence table down to entries above the warn threshold and
+    /// annotate each with its best contaminant match.
     fn get_overrepresented_seqs(&mut self) {
         let data = self.shared.read().unwrap();
         let count = data.count;

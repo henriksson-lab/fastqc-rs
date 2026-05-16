@@ -32,13 +32,18 @@ pub fn find_optimal_y_interval(max_value: f64) -> f64 {
     max_value / 5.0
 }
 
-/// Chart layout margins in pixels.
+/// Top margin of the plot area in pixels.
 pub const MARGIN_TOP: i32 = 40;
+/// Bottom margin reserved for x-axis labels and title.
 pub const MARGIN_BOTTOM: i32 = 40;
+/// Right margin in pixels.
 pub const MARGIN_RIGHT: i32 = 10;
+/// Minimum left margin reserved for y-axis labels.
 pub const MARGIN_LEFT_MIN: i32 = 50;
 
-/// Standard font sizes.
+/// Font size for the chart title.
 pub const TITLE_FONT_SIZE: f64 = 14.0;
+/// Font size for axis labels.
 pub const LABEL_FONT_SIZE: f64 = 11.0;
+/// Font size for legend entries.
 pub const LEGEND_FONT_SIZE: f64 = 11.0;

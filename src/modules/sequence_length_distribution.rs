@@ -5,6 +5,7 @@ use crate::modules::per_sequence_quality::format_java_double;
 use crate::modules::QCModule;
 use crate::sequence::Sequence;
 
+/// Histogram of read lengths, binned into pretty intervals for plotting.
 pub struct SequenceLengthDistribution {
     length_counts: Vec<u64>,
     graph_counts: Vec<f64>,
@@ -15,6 +16,7 @@ pub struct SequenceLengthDistribution {
 }
 
 impl SequenceLengthDistribution {
+    /// Construct an empty length histogram; `nogroup` disables length binning.
     pub fn new(config: ModuleConfig, fqc_config: &FastQCConfig) -> Self {
         Self {
             length_counts: Vec::new(),
@@ -58,6 +60,7 @@ impl SequenceLengthDistribution {
         [starting, interval]
     }
 
+    /// Bin raw per-length counts into at most ~50 prettily-sized intervals for reporting.
     fn calculate_distribution(&mut self) {
         let mut max_len: i32 = 0;
         let mut min_len: i32 = -1;

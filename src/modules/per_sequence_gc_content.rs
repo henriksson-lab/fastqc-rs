@@ -6,6 +6,8 @@ use crate::modules::QCModule;
 use crate::sequence::Sequence;
 use crate::statistics::NormalDistribution;
 
+/// Builds the whole-read GC% distribution and compares it to an idealised normal curve
+/// fitted on the observed modal GC; deviation drives the warn/error status.
 pub struct PerSequenceGCContent {
     gc_distribution: [f64; 101],
     theoretical_distribution: [f64; 101],
@@ -17,6 +19,7 @@ pub struct PerSequenceGCContent {
 }
 
 impl PerSequenceGCContent {
+    /// Construct with empty histograms and a per-length GCModel cache.
     pub fn new(config: ModuleConfig) -> Self {
         Self {
             gc_distribution: [0.0; 101],
@@ -29,6 +32,8 @@ impl PerSequenceGCContent {
         }
     }
 
+    /// Truncate to the nearest 1000- or 100-bp boundary so reads of similar length share
+    /// a cached GCModel; mirrors Java to keep the percentage bins stable.
     fn truncate_sequence<'a>(&self, seq: &'a str) -> &'a str {
         if seq.len() > 1000 {
             let length = (seq.len() / 1000) * 1000;
@@ -41,6 +46,8 @@ impl PerSequenceGCContent {
         }
     }
 
+    /// Locate the modal GC%, fit a normal distribution centred there, and record the
+    /// absolute deviation between the observed and theoretical curves.
     fn calculate_distribution(&mut self) {
         let mut max = 0.0_f64;
         self.x_categories = Vec::with_capacity(101);

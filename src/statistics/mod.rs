@@ -5,6 +5,7 @@ pub struct NormalDistribution {
 }
 
 impl NormalDistribution {
+    /// Construct a normal distribution with the given mean and standard deviation.
     pub fn new(mean: f64, stdev: f64) -> Self {
         Self { mean, stdev }
     }

@@ -14,20 +14,31 @@ pub const TOL_PALETTE: [RGBColor; 8] = [
 ];
 
 // Quality zone background colors (alternating light/dark for visual clarity)
+/// Background fill for Q28+ ("good") quality zone in box plots.
 pub const QUALITY_GOOD: RGBColor = RGBColor(195, 230, 195);
+/// Alternating darker stripe variant of `QUALITY_GOOD`.
 pub const QUALITY_GOOD_DARK: RGBColor = RGBColor(175, 230, 175);
+/// Background fill for Q20-Q28 ("warning") quality zone.
 pub const QUALITY_BAD: RGBColor = RGBColor(230, 220, 195);
+/// Alternating darker stripe variant of `QUALITY_BAD`.
 pub const QUALITY_BAD_DARK: RGBColor = RGBColor(230, 215, 175);
+/// Background fill for Q<20 ("bad") quality zone.
 pub const QUALITY_UGLY: RGBColor = RGBColor(230, 195, 195);
+/// Alternating darker stripe variant of `QUALITY_UGLY`.
 pub const QUALITY_UGLY_DARK: RGBColor = RGBColor(230, 175, 175);
 
 // Box plot element colors
+/// Fill color for the IQR box in quality box plots (yellow, matches Java).
 pub const BOX_FILL: RGBColor = RGBColor(240, 240, 0);
+/// Color of the median line drawn inside each IQR box.
 pub const MEDIAN_COLOR: RGBColor = RGBColor(200, 0, 0);
+/// Color of the mean line connecting per-position means.
 pub const MEAN_COLOR: RGBColor = RGBColor(0, 0, 200);
 
 // Chart background colors
+/// Alternating column stripe color used as a subtle background guide.
 pub const STRIPE_COLOR: RGBColor = RGBColor(230, 230, 230);
+/// Color used for horizontal y-axis grid lines.
 pub const GRID_COLOR: RGBColor = RGBColor(180, 180, 180);
 
 /// Hot-cold color gradient for tile quality heatmaps.
@@ -38,6 +49,9 @@ pub struct HotColdGradient {
 }
 
 impl HotColdGradient {
+    /// Creates a palette of 100 pre-cached colours from which the closest match
+    /// will be selected to return for future queries. Pre-caching saves on the
+    /// overhead of generating a lot of new objects on each lookup.
     pub fn new() -> Self {
         let mut colors = Vec::with_capacity(100);
         for i in 0..100 {
@@ -63,8 +77,8 @@ impl HotColdGradient {
         Self { colors }
     }
 
-    /// Get a color for a value in the range [min, max].
-    /// Uses sqrt scaling to emphasize extremes.
+    /// Gets a colour from the gradient for `value`, where `min` and `max` define
+    /// the range of the gradient. Applies sqrt scaling to emphasize extremes.
     pub fn get_color(&self, value: f64, min: f64, max: f64) -> RGBColor {
         if max <= min {
             return self.colors[50]; // neutral green

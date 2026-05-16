@@ -6,6 +6,8 @@ use crate::modules::module_config::ModuleConfig;
 use crate::modules::QCModule;
 use crate::sequence::Sequence;
 
+/// Histogram of per-read average quality scores, used to flag libraries where the
+/// modal read quality falls below the warn/error threshold.
 pub struct PerSequenceQualityScores {
     average_score_counts: HashMap<i32, u64>,
     quality_distribution: Vec<f64>,
@@ -18,6 +20,7 @@ pub struct PerSequenceQualityScores {
 }
 
 impl PerSequenceQualityScores {
+    /// Construct an empty quality-score histogram.
     pub fn new(config: ModuleConfig) -> Self {
         Self {
             average_score_counts: HashMap::new(),
@@ -31,6 +34,7 @@ impl PerSequenceQualityScores {
         }
     }
 
+    /// Densify the sparse score map into a contiguous histogram and locate the mode.
     fn calculate_distribution(&mut self) {
         if self.average_score_counts.is_empty() {
             self.calculated = true;
@@ -196,7 +200,8 @@ pub fn format_java_double(v: f64) -> String {
     }
 }
 
-/// Format like Java's scientific notation: e.g., 0.0005 -> "5.0E-4"
+/// Format like Java's scientific notation: e.g., 0.0005 -> "5.0E-4".
+/// Ensures the mantissa always contains a decimal point.
 fn format_java_scientific(v: f64) -> String {
     // Java's Double.toString uses format like "5.0E-4" or "1.5E7"
     let formatted = format!("{:E}", v);

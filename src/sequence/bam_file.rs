@@ -27,6 +27,8 @@ pub struct BamFileReader {
 }
 
 impl BamFileReader {
+    /// Open a BAM file and consume its header. If `only_mapped` is true, unmapped reads
+    /// are skipped and soft-clipped portions are trimmed from the returned sequence.
     pub fn open(path: &Path, only_mapped: bool) -> Result<Self, BamError> {
         let name = path
             .file_name()
@@ -150,6 +152,8 @@ pub struct SamFileReader {
 }
 
 impl SamFileReader {
+    /// Open a SAM file for line-by-line parsing. If `only_mapped` is true, unmapped reads
+    /// are skipped and soft-clipped portions are trimmed from the returned sequence.
     pub fn open(path: &Path, only_mapped: bool) -> Result<Self, BamError> {
         let name = path
             .file_name()
@@ -252,6 +256,7 @@ impl Iterator for SamFileReader {
     }
 }
 
+/// Parse a CIGAR string into (op, length) pairs (e.g. "10S40M" -> [('S',10),('M',40)]).
 fn parse_cigar(cigar: &str) -> Vec<(char, usize)> {
     let mut ops = Vec::new();
     let mut num = String::new();

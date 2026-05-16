@@ -121,6 +121,7 @@ pub fn render_chart_to_svg(data: &ChartData) -> Result<Vec<u8>, Box<dyn std::err
     Ok(svg.into_bytes())
 }
 
+/// Encode a raw RGB pixel buffer to PNG bytes.
 fn encode_rgb_to_png(rgb: &[u8], w: u32, h: u32) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
     use image::{ImageBuffer, Rgb};
     let img: ImageBuffer<Rgb<u8>, _> =
@@ -131,6 +132,7 @@ fn encode_rgb_to_png(rgb: &[u8], w: u32, h: u32) -> Result<Vec<u8>, Box<dyn std:
     Ok(png_bytes)
 }
 
+/// Register a system sans-serif font with plotters exactly once per process.
 fn ensure_plotters_font_registered() -> Result<(), Box<dyn std::error::Error>> {
     static FONT_REGISTRATION: OnceLock<Result<(), String>> = OnceLock::new();
 
@@ -140,6 +142,7 @@ fn ensure_plotters_font_registered() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(Into::into)
 }
 
+/// Locate a system sans-serif font via fontdb and hand it to plotters' font registry.
 fn register_plotters_sans_serif_font() -> Result<(), String> {
     use plotters::style::{register_font, FontStyle};
 

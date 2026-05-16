@@ -12,6 +12,7 @@ const FASTQ_DATASET_PATHS: [&str; 4] = [
     "Analyses/Basecall_1D_000/BaseCalled_1D/Fastq",
 ];
 
+/// Error type for Fast5 (Oxford Nanopore HDF5) parsing.
 #[derive(Debug, Error)]
 pub enum Fast5Error {
     #[error("HDF5 error: {0}")]
@@ -20,6 +21,7 @@ pub enum Fast5Error {
     Format(String),
 }
 
+/// Iterator that yields Sequence records from a Fast5 (HDF5) basecalled file.
 pub struct Fast5FileReader {
     file: File,
     file_name: String,
@@ -28,6 +30,7 @@ pub struct Fast5FileReader {
 }
 
 impl Fast5FileReader {
+    /// Open a Fast5 file and enumerate its read groups.
     pub fn open(path: &Path) -> Result<Self, Fast5Error> {
         let file = File::open(path)?;
         let file_name = path
@@ -60,6 +63,7 @@ impl Iterator for Fast5FileReader {
     }
 }
 
+/// List the `read_*` group prefixes at the root, or a single empty prefix for legacy single-read files.
 fn read_prefixes(file: &File) -> Result<Vec<String>, Fast5Error> {
     let read_folders: Vec<String> = file
         .member_names()?
@@ -75,6 +79,7 @@ fn read_prefixes(file: &File) -> Result<Vec<String>, Fast5Error> {
     }
 }
 
+/// Locate an embedded FASTQ dataset for one read group and decode it into a Sequence.
 fn read_sequence(file: &File, prefix: &str, file_name: &str) -> Result<Sequence, Fast5Error> {
     for suffix in FASTQ_DATASET_PATHS {
         let path = format!("{}{}", prefix, suffix);
@@ -90,6 +95,7 @@ fn read_sequence(file: &File, prefix: &str, file_name: &str) -> Result<Sequence,
     )))
 }
 
+/// Read a HDF5 dataset as a UTF-8 string, falling back to raw bytes for non-string-typed datasets.
 fn read_dataset_string(dataset: &Dataset) -> Result<String, Fast5Error> {
     if let Ok(value) = dataset.read_string() {
         return Ok(value);
@@ -100,6 +106,7 @@ fn read_dataset_string(dataset: &Dataset) -> Result<String, Fast5Error> {
         .map_err(|err| Fast5Error::Format(format!("Fast5 Fastq dataset was not UTF-8: {}", err)))
 }
 
+/// Parse the 4-line FASTQ record embedded in a Fast5 dataset into a Sequence.
 fn parse_embedded_fastq(fastq: &str, file_name: &str) -> Result<Sequence, Fast5Error> {
     let lines: Vec<&str> = fastq.trim_end_matches(['\r', '\n']).lines().collect();
 

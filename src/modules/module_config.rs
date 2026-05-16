@@ -10,6 +10,7 @@ pub struct ModuleConfig {
 const DEFAULT_LIMITS: &str = include_str!("../resources/limits.txt");
 
 impl ModuleConfig {
+    /// Load thresholds from `limits_file`, falling back to the embedded default limits.txt.
     pub fn new(limits_file: Option<&Path>) -> Self {
         let mut params = HashMap::new();
 
@@ -67,6 +68,7 @@ impl ModuleConfig {
         Self { parameters: params }
     }
 
+    /// Parse a limits.txt-formatted string and override entries in `params`.
     fn parse_limits(text: &str, params: &mut HashMap<String, f64>) {
         for line in text.lines() {
             let line = line.trim();

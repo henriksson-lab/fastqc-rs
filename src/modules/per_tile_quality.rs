@@ -10,6 +10,8 @@ use crate::sequence::Sequence;
 use crate::utils::base_group::BaseGroup;
 use crate::utils::quality_count::QualityCount;
 
+/// Tracks mean quality per Illumina flowcell tile and read position; flags tiles whose
+/// average diverges noticeably from the per-position mean.
 pub struct PerTileQuality {
     per_tile_quality_counts: HashMap<i32, Vec<QualityCount>>,
     current_length: usize,
@@ -26,6 +28,7 @@ pub struct PerTileQuality {
 }
 
 impl PerTileQuality {
+    /// Construct an empty per-tile quality accumulator.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         Self {
             per_tile_quality_counts: HashMap::new(),
@@ -43,6 +46,7 @@ impl PerTileQuality {
         }
     }
 
+    /// Find the min and max quality characters across all tiles for Phred detection.
     fn calculate_offsets(&self) -> (char, char) {
         let mut min_char: char = '\0';
         let mut max_char: char = '\0';
@@ -66,6 +70,8 @@ impl PerTileQuality {
         (min_char, max_char)
     }
 
+    /// Compute per-tile, per-position mean qualities and subtract the cross-tile mean
+    /// at each position to expose per-tile deviation. Tracks max absolute deviation.
     fn get_percentages(&mut self) {
         let (min_char, _max_char) = self.calculate_offsets();
         let encoding =
@@ -125,6 +131,7 @@ impl PerTileQuality {
         self.calculated = true;
     }
 
+    /// Mean quality on a given tile across positions in [min_bp, max_bp].
     fn get_mean(&self, tile: i32, min_bp: usize, max_bp: usize, offset: i32) -> f64 {
         let mut count = 0;
         let mut total = 0.0;

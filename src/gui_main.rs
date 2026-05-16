@@ -4,6 +4,7 @@
     windows_subsystem = "windows"
 )]
 
+/// Entry point for the `fastqc-rs-gui` binary; opens the iced GUI, optionally with a file argument.
 #[cfg(feature = "gui")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().skip(1).collect();

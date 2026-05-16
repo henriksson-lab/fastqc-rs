@@ -183,6 +183,7 @@ where
     Ok(())
 }
 
+/// Format a y-axis tick: integer if whole, otherwise one decimal place.
 fn format_y_label(val: f64) -> String {
     if val == val.floor() {
         format!("{}", val as i64)

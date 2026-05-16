@@ -9,6 +9,7 @@ pub struct BaseGroup {
 }
 
 impl BaseGroup {
+    /// Create a `BaseGroup` covering positions `lower_count..=upper_count` (inclusive, 1-based).
     pub fn new(lower_count: usize, upper_count: usize) -> Self {
         Self {
             lower_count,
@@ -16,6 +17,7 @@ impl BaseGroup {
         }
     }
 
+    /// True if `value` falls within this group's inclusive range.
     pub fn contains_value(&self, value: usize) -> bool {
         value >= self.lower_count && value <= self.upper_count
     }
@@ -36,6 +38,7 @@ impl BaseGroup {
         }
     }
 
+    /// One group per base position (no binning), used when `--nogroup` is set.
     pub fn make_ungrouped_groups(max_length: usize) -> Vec<BaseGroup> {
         let mut groups = Vec::new();
         let interval = 1;
@@ -53,6 +56,8 @@ impl BaseGroup {
         groups
     }
 
+    /// Exponentially-widening bins (interval grows at 10/50/100/500/1000 bp thresholds).
+    /// Matches Java's `makeExponentialBaseGroups` exactly; used when `--expgroup` is set.
     pub fn make_exponential_base_groups(max_length: usize) -> Vec<BaseGroup> {
         let mut groups = Vec::new();
         let mut starting_base: usize = 1;
@@ -87,6 +92,7 @@ impl BaseGroup {
         groups
     }
 
+    /// Pick the smallest interval from {2,5,10} * 10^k that keeps the group count under 75.
     fn get_linear_interval(length: usize) -> usize {
         let base_values = [2, 5, 10];
         let mut multiplier: usize = 1;
@@ -112,6 +118,8 @@ impl BaseGroup {
         }
     }
 
+    /// Default grouping: first 9 positions individual, then fixed-width bins chosen
+    /// to keep the total group count under 75. Reads <=75 bp are returned ungrouped.
     pub fn make_linear_base_groups(max_length: usize) -> Vec<BaseGroup> {
         // For lengths below 75bp we just return everything
         if max_length <= 75 {

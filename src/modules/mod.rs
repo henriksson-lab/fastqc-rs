@@ -57,7 +57,8 @@ pub trait QCModule {
     /// Whether to skip filtered sequences for this module
     fn ignore_filtered_sequences(&self) -> bool;
 
-    /// Whether to exclude this module from the report
+    /// Whether to exclude this module from the final report. Useful for modules
+    /// which have a use under some circumstances but not others.
     fn ignore_in_report(&self) -> bool;
 
     /// Generate the text data report section for this module

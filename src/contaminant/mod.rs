@@ -37,6 +37,8 @@ pub struct Contaminant {
 }
 
 impl Contaminant {
+    /// Build a contaminant from a name and DNA sequence, precomputing the reverse complement.
+    /// Panics if the sequence contains characters other than G/A/T/C.
     pub fn new(name: &str, sequence: &str) -> Self {
         let forward: Vec<u8> = sequence.to_uppercase().bytes().collect();
         let mut reverse = vec![0u8; forward.len()];
@@ -60,6 +62,7 @@ impl Contaminant {
         }
     }
 
+    /// The contaminant's display name.
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -205,6 +208,7 @@ pub struct ContaminantFinder {
 }
 
 impl ContaminantFinder {
+    /// Load contaminants from a user-supplied file, or fall back to the built-in list.
     pub fn new(contaminant_file: Option<&Path>) -> Self {
         let text = if let Some(path) = contaminant_file {
             std::fs::read_to_string(path).unwrap_or_else(|e| {
@@ -219,6 +223,7 @@ impl ContaminantFinder {
         Self { contaminants }
     }
 
+    /// Parse a contaminant list file (tab-separated name and sequence; `#` comments allowed).
     fn parse_contaminant_list(text: &str) -> Vec<Contaminant> {
         let mut contaminants = Vec::new();
         for line in text.lines() {

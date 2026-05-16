@@ -12,6 +12,7 @@ const ERROR_PNG: &[u8] = include_bytes!("../resources/icons/error.png");
 // Embed CSS template at compile time
 const HEADER_CSS: &str = include_str!("../resources/header_template.html");
 
+/// Embedded FastQC icon PNGs as `(archive_filename, bytes)` pairs for the report ZIP.
 pub(crate) fn fastqc_icon_files() -> [(&'static str, &'static [u8]); 4] {
     [
         ("fastqc_icon.png", FASTQC_ICON_PNG),
@@ -71,6 +72,7 @@ pub fn write_fastqc_archive(
     Ok(())
 }
 
+/// Escape `&`, `<`, `>`, `"`, `'` for safe inclusion in HTML report text.
 fn escape_html(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for ch in text.chars() {

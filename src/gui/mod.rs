@@ -17,6 +17,7 @@ pub struct TableData {
 }
 
 impl TableData {
+    /// Parse a module's TSV data report; lines starting with `#` become headers, others rows.
     pub fn from_tsv(tsv: &str) -> Self {
         let mut headers = Vec::new();
         let mut rows = Vec::new();
@@ -135,6 +136,7 @@ fn render_status_icon(size: u32, bg: [u8; 3], symbol: &str) -> iced::widget::ima
     iced::widget::image::Handle::from_bytes(buf.into_inner())
 }
 
+/// Bresenham line algorithm with a small square brush for stroke thickness.
 fn draw_thick_line(
     img: &mut ::image::RgbaImage,
     x0: i32,
@@ -197,7 +199,7 @@ impl StatusIcons {
     }
 }
 
-/// Application view state.
+/// Application view state: empty, analysing a file, loaded with results, or showing an error.
 enum AppState {
     Empty,
     Analyzing(String),
@@ -216,6 +218,7 @@ pub struct FastQCApp {
     icons: StatusIcons,
 }
 
+/// iced messages dispatched by the GUI: module selection, file drop, and analysis completion.
 #[derive(Debug, Clone)]
 pub enum Message {
     SelectModule(usize),
@@ -223,6 +226,7 @@ pub enum Message {
     AnalysisComplete(Result<(String, Vec<ModuleResult>), String>),
 }
 
+/// Run the full FastQC pipeline on `path` and collect per-module table + chart results for display.
 fn analyze_file(path: PathBuf) -> Result<(String, Vec<ModuleResult>), String> {
     let file_name = path
         .file_name()
@@ -303,6 +307,7 @@ fn analyze_file(path: PathBuf) -> Result<(String, Vec<ModuleResult>), String> {
 }
 
 impl FastQCApp {
+    /// Build initial app state; if a file was passed on the CLI, kick off its analysis immediately.
     fn new(initial_file: Option<PathBuf>) -> (Self, Task<Message>) {
         let icons = StatusIcons::new();
         match initial_file {
@@ -331,6 +336,7 @@ impl FastQCApp {
         }
     }
 
+    /// Window title reflecting the current `AppState`.
     fn title(&self) -> String {
         match &self.state {
             AppState::Loaded { file_name, .. } => format!("FastQC - {}", file_name),
@@ -339,6 +345,7 @@ impl FastQCApp {
         }
     }
 
+    /// iced update handler: react to selection changes, file drops, and analysis completion.
     fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::SelectModule(idx) => {
@@ -394,6 +401,7 @@ impl FastQCApp {
         Task::none()
     }
 
+    /// Subscribe to OS file-drop events and convert them into `Message::FileDropped`.
     fn subscription(&self) -> Subscription<Message> {
         iced::event::listen_with(|event, _status, _window| {
             if let iced::event::Event::Window(iced::window::Event::FileDropped(path)) = event {
@@ -404,6 +412,7 @@ impl FastQCApp {
         })
     }
 
+    /// Root view: empty placeholder, in-progress spinner, error message, or loaded report.
     fn view(&self) -> Element<'_, Message> {
         match &self.state {
             AppState::Empty => center(
@@ -455,6 +464,7 @@ impl FastQCApp {
         }
     }
 
+    /// Render the loaded report: module sidebar plus the selected module's chart and data table.
     fn view_loaded<'a>(
         &'a self,
         modules: &'a [ModuleResult],

@@ -41,10 +41,12 @@ impl PhredEncoding {
         }
     }
 
+    /// Convert a Sanger-scale Phred score to an error probability (10^(-Q/10)).
     pub fn convert_sanger_phred_to_probability(phred: i32) -> f64 {
         10.0_f64.powf(phred as f64 / -10.0)
     }
 
+    /// Convert an old Illumina (Solexa) Phred score to an error probability.
     pub fn convert_old_illumina_phred_to_probability(phred: i32) -> f64 {
         10.0_f64.powf((phred as f64 / (phred as f64 + 1.0)) / -10.0)
     }

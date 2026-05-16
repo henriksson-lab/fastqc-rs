@@ -6,6 +6,7 @@ use crate::modules::QCModule;
 use crate::sequence::Sequence;
 use crate::utils::base_group::BaseGroup;
 
+/// Tracks the percentage of N base calls at each position across all reads.
 pub struct NContent {
     n_counts: Vec<u64>,
     not_n_counts: Vec<u64>,
@@ -17,6 +18,7 @@ pub struct NContent {
 }
 
 impl NContent {
+    /// Construct an empty N-content accumulator.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         Self {
             n_counts: Vec::new(),
@@ -29,6 +31,7 @@ impl NContent {
         }
     }
 
+    /// Roll raw per-position counts into BaseGroup bins and convert to %N.
     fn get_percentages(&mut self) {
         if self.n_counts.is_empty() {
             self.calculated = true;

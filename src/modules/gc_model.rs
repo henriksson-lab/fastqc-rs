@@ -16,6 +16,8 @@ pub struct GCModel {
 }
 
 impl GCModel {
+    /// Precompute, for each possible GC base count in a read of length `read_length`,
+    /// the set of percentage bins it contributes to along with fractional weights.
     pub fn new(read_length: usize) -> Self {
         let mut claiming_counts = vec![0i32; 101];
 
@@ -92,6 +94,7 @@ impl GCModel {
         }
     }
 
+    /// Return the percentage-bin contributions for a read with `gc_count` G/C bases.
     pub fn get_model_values(&self, gc_count: usize) -> &[GCModelValue] {
         &self.models[gc_count]
     }

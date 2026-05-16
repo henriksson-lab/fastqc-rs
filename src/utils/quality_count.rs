@@ -7,6 +7,7 @@ pub struct QualityCount {
 }
 
 impl QualityCount {
+    /// Create an empty histogram with all 150 ASCII slots zeroed.
     pub fn new() -> Self {
         Self {
             actual_counts: [0u64; 150],
@@ -14,6 +15,7 @@ impl QualityCount {
         }
     }
 
+    /// Record one observation of quality character `c`. Panics if its ASCII value exceeds 149.
     pub fn add_value(&mut self, c: char) {
         let idx = c as usize;
         if idx >= self.actual_counts.len() {
@@ -26,10 +28,12 @@ impl QualityCount {
         self.actual_counts[idx] += 1;
     }
 
+    /// Total number of quality observations recorded.
     pub fn get_total_count(&self) -> u64 {
         self.total_counts
     }
 
+    /// Lowest observed quality character (NUL if no observations).
     pub fn get_min_char(&self) -> char {
         for i in 0..self.actual_counts.len() {
             if self.actual_counts[i] > 0 {
@@ -40,6 +44,7 @@ impl QualityCount {
         char::from(0)
     }
 
+    /// Highest observed quality character (NUL if no observations).
     pub fn get_max_char(&self) -> char {
         for i in (0..self.actual_counts.len()).rev() {
             if self.actual_counts[i] > 0 {

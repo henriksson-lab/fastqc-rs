@@ -14,12 +14,14 @@ fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     memchr::memmem::find(haystack, needle)
 }
 
+/// Adapter sequence with a running cumulative count of hits per read position.
 struct Adapter {
     sequence: Vec<u8>,
     positions: Vec<u64>,
 }
 
 impl Adapter {
+    /// Construct an adapter from its DNA sequence with a single-slot position counter.
     fn new(sequence: &str) -> Self {
         Self {
             sequence: sequence.as_bytes().to_vec(),
@@ -27,6 +29,7 @@ impl Adapter {
         }
     }
 
+    /// Grow the position counter to `new_length`, propagating the last cumulative value.
     fn expand_length_to(&mut self, new_length: usize) {
         if new_length <= self.positions.len() {
             return;
@@ -40,11 +43,13 @@ impl Adapter {
         self.positions.resize(new_length, last_val);
     }
 
+    /// Clear all position counts.
     fn reset(&mut self) {
         self.positions.clear();
     }
 }
 
+/// Tracks cumulative adapter contamination percentages by read position.
 pub struct AdapterContent {
     adapters: Vec<Adapter>,
     labels: Vec<String>,
@@ -59,6 +64,7 @@ pub struct AdapterContent {
 }
 
 impl AdapterContent {
+    /// Build the module by parsing the user-supplied or embedded adapter list.
     pub fn new(config: ModuleConfig, fqc_config: FastQCConfig) -> Self {
         let mut adapters = Vec::new();
         let mut labels = Vec::new();
@@ -115,6 +121,7 @@ impl AdapterContent {
         }
     }
 
+    /// Convert per-position counts into percent-of-reads enrichments grouped by base bins.
     fn calculate_enrichment(&mut self) {
         if self.total_count == 0 {
             self.calculated = true;
