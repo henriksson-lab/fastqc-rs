@@ -1613,6 +1613,7 @@ fn test_fastqc_archive_layout() {
         "archive_fastqc/summary.txt",
         "archive_fastqc/fastqc_data.txt",
         "archive_fastqc/fastqc_report.html",
+        "archive_fastqc/fastqc.fo",
     ] {
         assert!(
             names.iter().any(|name| name == expected),
@@ -1628,10 +1629,10 @@ fn test_fastqc_archive_layout() {
         "archive should include rendered chart images"
     );
 
-    assert!(
-        !names.iter().any(|name| name.ends_with("/fastqc.fo")),
-        "fastqc.fo generation is out of scope"
-    );
+    let fo = zip_entry_string(&dir.join("archive_fastqc.zip"), "archive_fastqc/fastqc.fo");
+    assert!(fo.contains("<fo:root"));
+    assert!(fo.contains("FastQC Report: archive"));
+    assert!(fo.contains("Basic Statistics"));
 }
 
 #[test]
@@ -1667,6 +1668,7 @@ fn test_public_archive_writer_helper() {
     assert!(names
         .iter()
         .any(|name| name == "manual_fastqc/fastqc_report.html"));
+    assert!(names.iter().any(|name| name == "manual_fastqc/fastqc.fo"));
     assert!(names
         .iter()
         .any(|name| name == "manual_fastqc/Icons/tick.png"));
@@ -1787,6 +1789,7 @@ fn test_extract_and_delete_outputs() {
     assert!(extract_dir.join("fastqc_data.txt").exists());
     assert!(extract_dir.join("fastqc_report.html").exists());
     assert!(extract_dir.join("summary.txt").exists());
+    assert!(extract_dir.join("fastqc.fo").exists());
     assert!(extract_dir.join("Icons").join("tick.png").exists());
     assert!(
         std::fs::read_dir(extract_dir.join("Images"))
@@ -1817,6 +1820,7 @@ fn test_extract_and_delete_outputs() {
         .join("delete_fastqc")
         .join("fastqc_data.txt")
         .exists());
+    assert!(delete_dir.join("delete_fastqc").join("fastqc.fo").exists());
 }
 
 #[test]

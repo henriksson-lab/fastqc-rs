@@ -26,7 +26,8 @@ pub(crate) fn fastqc_icon_files() -> [(&'static str, &'static [u8]); 4] {
 ///
 /// The archive layout mirrors Java FastQC:
 /// `<stem>_fastqc/fastqc_data.txt`, `<stem>_fastqc/fastqc_report.html`,
-/// `<stem>_fastqc/summary.txt`, `Icons/`, and `Images/`.
+/// `<stem>_fastqc/summary.txt`, `<stem>_fastqc/fastqc.fo`, `Icons/`, and
+/// `Images/`.
 pub fn write_fastqc_archive(
     zip_path: impl AsRef<Path>,
     stem: &str,
@@ -68,8 +69,61 @@ pub fn write_fastqc_archive(
     zip.start_file(format!("{}/fastqc_report.html", prefix), options)?;
     zip.write_all(html_report.as_bytes())?;
 
+    zip.start_file(format!("{}/fastqc.fo", prefix), options)?;
+    zip.write_all(generate_fastqc_fo(stem, data_report, summary_report).as_bytes())?;
+
     zip.finish()?;
     Ok(())
+}
+
+/// Generate a simple XSL-FO report payload for the archive `fastqc.fo` entry.
+///
+/// Java FastQC creates this file from `Templates/fastqc2fo.xsl`. The Rust
+/// archive uses direct XSL-FO generation so downstream consumers that expect the
+/// entry can find a valid text representation of the same summary/data payloads.
+pub fn generate_fastqc_fo(stem: &str, data_report: &str, summary_report: &str) -> String {
+    let mut buf = String::new();
+    buf.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+    buf.push_str("<fo:root xmlns:fo=\"http://www.w3.org/1999/XSL/Format\">\n");
+    buf.push_str("  <fo:layout-master-set>\n");
+    buf.push_str("    <fo:simple-page-master master-name=\"fastqc\" page-height=\"29.7cm\" page-width=\"21cm\" margin=\"1.5cm\">\n");
+    buf.push_str("      <fo:region-body/>\n");
+    buf.push_str("    </fo:simple-page-master>\n");
+    buf.push_str("  </fo:layout-master-set>\n");
+    buf.push_str("  <fo:page-sequence master-reference=\"fastqc\">\n");
+    buf.push_str("    <fo:flow flow-name=\"xsl-region-body\">\n");
+    buf.push_str("      <fo:block font-size=\"18pt\" font-weight=\"bold\" space-after=\"12pt\">FastQC Report: ");
+    buf.push_str(&escape_xml(stem));
+    buf.push_str("</fo:block>\n");
+    buf.push_str("      <fo:block font-size=\"12pt\" font-weight=\"bold\" space-before=\"8pt\">Summary</fo:block>\n");
+    push_fo_preformatted(&mut buf, summary_report);
+    buf.push_str("      <fo:block font-size=\"12pt\" font-weight=\"bold\" space-before=\"12pt\">Data</fo:block>\n");
+    push_fo_preformatted(&mut buf, data_report);
+    buf.push_str("    </fo:flow>\n");
+    buf.push_str("  </fo:page-sequence>\n");
+    buf.push_str("</fo:root>\n");
+    buf
+}
+
+fn push_fo_preformatted(buf: &mut String, text: &str) {
+    buf.push_str("      <fo:block font-family=\"monospace\" font-size=\"8pt\" white-space-collapse=\"false\" linefeed-treatment=\"preserve\" white-space-treatment=\"preserve\">");
+    buf.push_str(&escape_xml(text));
+    buf.push_str("</fo:block>\n");
+}
+
+fn escape_xml(text: &str) -> String {
+    let mut escaped = String::with_capacity(text.len());
+    for ch in text.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&apos;"),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 /// Escape `&`, `<`, `>`, `"`, `'` for safe inclusion in HTML report text.

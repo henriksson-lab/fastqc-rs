@@ -505,6 +505,10 @@ fn process_analysis_input(
         std::fs::write(extract_dir.join("fastqc_data.txt"), &report.data_report)?;
         std::fs::write(extract_dir.join("fastqc_report.html"), &report.html_report)?;
         std::fs::write(extract_dir.join("summary.txt"), &report.summary_report)?;
+        std::fs::write(
+            extract_dir.join("fastqc.fo"),
+            report::generate_fastqc_fo(stem, &report.data_report, &report.summary_report),
+        )?;
         for (name, bytes) in report::fastqc_icon_files() {
             std::fs::write(extract_dir.join("Icons").join(name), bytes)?;
         }
@@ -582,6 +586,10 @@ pub fn run_fastqc(
             std::fs::write(extract_dir.join("fastqc_data.txt"), &data_report)?;
             std::fs::write(extract_dir.join("fastqc_report.html"), &html_report)?;
             std::fs::write(extract_dir.join("summary.txt"), &summary_report)?;
+            std::fs::write(
+                extract_dir.join("fastqc.fo"),
+                report::generate_fastqc_fo("stdin", &data_report, &summary_report),
+            )?;
             for (name, bytes) in report::fastqc_icon_files() {
                 std::fs::write(extract_dir.join("Icons").join(name), bytes)?;
             }

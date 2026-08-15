@@ -4,6 +4,10 @@ A Rust port of [FastQC](https://www.bioinformatics.babraham.ac.uk/projects/fastq
 
 `fastqc-compliant-rs` targets output compatibility with the original Java FastQC, verified against golden test files for core FASTQ reports. It supports FASTQ (plain, gzip, bzip2), BAM/SAM, and legacy Nanopore Fast5/HDF5 input formats. The project scope is now full original FastQC coverage: remaining Java FastQC behaviors such as `fastqc.fo` archive generation are tracked as compatibility work rather than intentionally excluded.
 
+This crate aims to replicate original FastQC behavior faithfully, with additional wrapping to make it easy to use as a Rust library. If you prefer Rust crates that go beyond this, check out:
+* [RastQC](https://github.com/Huang-lab/RastQC)
+* [RustQC](https://github.com/seqeralabs/RustQC/)
+
 ## This is an LLM-mediated faithful (hopefully) translation, not the original code! 
 
 Most users should probably first see if the existing original code works for them, unless they have reason otherwise. The original source
@@ -88,14 +92,16 @@ Fast5/HDF5 support uses the crates.io `hdf5-pure-rust` dependency, not native `l
 
 ## Performance
 
-Local single-threaded timing on a 123,888,712 byte gzipped FASTQ (`Undetermined_S0_L001_R1_001.fastq.gz`) showed `fastqc-compliant-rs` completing the same HTML+ZIP, no-extract workflow about 1.30x faster than Java FastQC v0.11.9.
+Local single-threaded timing on a 123,888,712 byte gzipped FASTQ (`Undetermined_S0_L001_R1_001.fastq.gz`) showed `fastqc-compliant-rs` completing the same HTML+ZIP, no-extract workflow about 1.40x faster than Java FastQC v0.11.9.
 
-Benchmark environment: Linux 6.8, Intel Xeon Gold 6138, release build from this repository, 1 warmup run followed by 3 measured runs per tool.
+Benchmark environment: Linux 6.8, Intel Xeon Gold 6138, release build from this repository, 3 measured runs per tool. Summary statuses matched Java FastQC; rendered HTML/ZIP artifacts and `fastqc_data.txt` were not byte-identical.
 
-| Tool | Command shape | Mean time | Range |
-|------|---------------|-----------|-------|
-| `fastqc-compliant-rs 0.4.0` | `target/release/fastqc-compliant-rs --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 9.64s | 9.59-9.69s |
-| `FastQC v0.11.9` | `fastqc --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 12.55s | 12.21-13.20s |
+Original benchmark baseline: `/usr/bin/fastqc` reports FastQC v0.11.9; the vendored FastQC source snapshot is commit `e2fad91e68af`.
+
+| Tool | Command shape | Median time | Range | Median RSS |
+|------|---------------|-------------|-------|------------|
+| `fastqc-compliant-rs 0.4.1` | `target/release/fastqc-compliant-rs --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 8.78s | 8.74-9.34s | 61,172 KB |
+| `FastQC v0.11.9` | `fastqc --threads 1 --quiet --noextract --outdir <tmp> Undetermined_S0_L001_R1_001.fastq.gz` | 12.27s | 12.20-13.23s | 340,924 KB |
 
 These numbers are machine- and input-dependent; use them as a snapshot, not a general guarantee.
 
@@ -417,3 +423,16 @@ Known differences:
 ## License
 
 GPL-3.0, matching the original FastQC license.
+
+
+## Citing
+
+> Andrews, S. (2010). FastQC:  A Quality Control Tool for High Throughput Sequence Data [Online]. Available online at: http://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+
+If you use our translation, we recommend that you also cite the precise version you use. If you link to [crates.io](http://crates.io), you can cite the version number;
+but if you link to our Git repository, for reproducibility, it is better that you provide the URL to the repository and the git hash (Github lists it high up on the page as 7 letters, under the Code button, e.g. '21751cd')
+
+In addition, we appreciate if you cite the paper below describing the translation approach. If for some reason you struggle with journal citation limits, please prioritizing citing the original software over our translation paper.
+
+> Johan Henriksson. Static analysis-guided agentic AI translation enables Rust as a full stack bioinformatics language. arXiv:2608.13029, 2026. https://doi.org/10.48550/arXiv.2608.13029
+
